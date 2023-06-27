@@ -4,3 +4,5 @@
 *.ti
 *.tsc
 *.bsp
+*.tls
+*.tpc
