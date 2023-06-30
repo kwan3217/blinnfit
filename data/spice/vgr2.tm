@@ -1,1 +1,48 @@
-/mnt/pinkiepie/home/chrisj/workspace/Data/spice/Voyager/vgr2.tm
+\begindata
+
+PATH_VALUES = ( 'data/spice/ck',
+                'data/spice/fk',
+                'data/spice/ik',
+                'data/spice/lsk',
+                'data/spice/pck',
+                'data/spice/sclk',
+                'data/spice/spk',
+                'data/spice/spk')
+
+PATH_SYMBOLS = ('CK',
+                'FK',
+                'IK',
+                'LSK',
+                'PCK',
+                'SCLK',
+                'SPK',
+                'SAT')
+
+KERNELS_TO_LOAD = ('$CK/vgr2_super.bc',
+                   '$CK/vg2_jup_qmw_na.bc',
+                   '$CK/vg2_jup_qmw_wa.bc',
+                   '$CK/vg2_sat_qmw_na.bc',
+                   '$CK/vg2_sat_qmw_wa.bc',
+                   '$CK/vg2_jup_version1_type1_iss_sedr.bc',
+                   '$CK/vg2_sat_version1_type1_iss_sedr.bc',
+                   '$CK/vg2_ura_version1_type1_iss_sedr.bc',
+                   '$CK/vg2_nep_version1_type1_iss_sedr.bc',
+                   '$FK/vg2_v02.tf',
+                   '$IK/vg2_issna_v02.ti',
+                   '$IK/vg2_isswa_v01.ti',
+                   '$LSK/naif0012.tls',
+                   '$PCK/pck00010.tpc',
+                   '$SPK/voyager_2.ST+1992_m05208u.merged.bsp',
+                   '$SPK/vgr2_jup230.bsp',
+                   '$SPK/vgr2_sat337.bsp',
+                   '$SPK/vgr2_ura083.bsp',
+                   '$SPK/vgr2_nep081.bsp',
+                   '$SAT/jup230l.bsp',
+                   '$SAT/sat357.bsp',
+                   '$SAT/sat359l.bsp',
+                   '$SAT/sat361.bsp',
+                   '$SAT/ura083.bsp',
+                   '$SAT/nep095.bsp',
+                   '$SAT/nep081.bsp',
+                   '$SCLK/vg200045.tsc')
+
