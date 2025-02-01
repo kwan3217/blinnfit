@@ -1,0 +1,69 @@
+OPUS ID,Product Category,Product Type,Product Type Abbrev,Version,File Path,Checksum,Size
+vg-iss-2-u-c2683623,Voyager ISS,Geometrically Corrected Image,vgiss_geomed,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26836XX/C2683623_GEOMED.IMG,65bb81f6b80f5f86544db13c161b7bc8,2002000
+vg-iss-2-u-c2683623,Voyager ISS,Geometrically Corrected Image,vgiss_geomed,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26836XX/C2683623_GEOMED.LBL,d80efcbf81803df70878f011123ca0c9,3323
+vg-iss-2-u-c2683623,Voyager ISS,Reseau Table,vgiss_resloc,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26836XX/C2683623_RESLOC.TAB,c22ba19150dc4bb388583cf5e088a504,5454
+vg-iss-2-u-c2683623,Voyager ISS,Reseau Table,vgiss_resloc,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26836XX/C2683623_RESLOC.DAT,39aa0296f388da46560eada34ee91103,6656
+vg-iss-2-u-c2683623,Voyager ISS,Reseau Table,vgiss_resloc,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26836XX/C2683623_RESLOC.LBL,819d619f5f00e6c5806e02c8f6a5751d,7658
+vg-iss-2-u-c2683623,Voyager ISS,Geometric Tiepoint Table,vgiss_geoma,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26836XX/C2683623_GEOMA.TAB,e02fef1dba218876224469a4c7ef7210,20424
+vg-iss-2-u-c2683623,Voyager ISS,Geometric Tiepoint Table,vgiss_geoma,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26836XX/C2683623_GEOMA.DAT,422236f68166b86c2013758a18cfb957,11776
+vg-iss-2-u-c2683623,Voyager ISS,Geometric Tiepoint Table,vgiss_geoma,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26836XX/C2683623_GEOMA.LBL,c640d21ddbd8938be76379d8fbc3564f,9677
+vg-iss-2-u-c2683623,Voyager ISS,Documentation,vgiss_documentation,Current,/documents/VGISS_5xxx/VICAR-File-Format.pdf,fe7c8b12346f730a2d653cc393608eb0,202904
+vg-iss-2-u-c2683623,Voyager ISS,Documentation,vgiss_documentation,Current,/documents/VGISS_5xxx/User-Tutorial.txt,73bff876a774d65b8396ae0c69e60f96,50106
+vg-iss-2-u-c2683623,Voyager ISS,Documentation,vgiss_documentation,Current,/documents/VGISS_5xxx/Smith-etal-1977-SSR.pdf,e1d1d0292e45e144f03e93c543a695fd,398566
+vg-iss-2-u-c2683623,Voyager ISS,Documentation,vgiss_documentation,Current,/documents/VGISS_5xxx/Smith-etal-1977-SSR-OCR.pdf,ef773fb018f3c0c8d190f775b19391c6,21168908
+vg-iss-2-u-c2683623,Voyager ISS,Documentation,vgiss_documentation,Current,/documents/VGISS_5xxx/Saturn-Image-Anomalies.txt,9f8e632a5bf44f10a6730511ea1464c5,22926
+vg-iss-2-u-c2683623,Voyager ISS,Documentation,vgiss_documentation,Current,/documents/VGISS_5xxx/Jupiter-Image-Anomalies.txt,8b435ab7f4d7e25da7ee585699dc785f,22667
+vg-iss-2-u-c2683623,Voyager ISS,Documentation,vgiss_documentation,Current,/documents/VGISS_5xxx/Image-Processing.txt,94c37731b0d25442c537611887ba3d24,28054
+vg-iss-2-u-c2683623,Voyager ISS,Documentation,vgiss_documentation,Current,/documents/VGISS_5xxx/CDROM-Info.txt,1e0216b1a7f0b5c536550283e9d7bdec,87072
+vg-iss-2-u-c2683623,browse,Browse Image (full),browse_full,Current,/previews/VGISS_7xxx/VGISS_7206/DATA/C26836XX/C2683623_full.jpg,420f697d42b80523350f26834b719dbd,40999
+vg-iss-2-u-c2683625,Voyager ISS,Geometrically Corrected Image,vgiss_geomed,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26836XX/C2683625_GEOMED.IMG,cd4131eb3fbb54455741d062a0b55891,2002000
+vg-iss-2-u-c2683625,Voyager ISS,Geometrically Corrected Image,vgiss_geomed,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26836XX/C2683625_GEOMED.LBL,04c6a34823f7ee030cec90953c6c77f9,3323
+vg-iss-2-u-c2683625,Voyager ISS,Reseau Table,vgiss_resloc,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26836XX/C2683625_RESLOC.TAB,068ff564f45cc2cad8983babd1360484,5454
+vg-iss-2-u-c2683625,Voyager ISS,Reseau Table,vgiss_resloc,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26836XX/C2683625_RESLOC.DAT,e7cd7fa9e6bb7f8d195bfd7b5c0e8cbb,6656
+vg-iss-2-u-c2683625,Voyager ISS,Reseau Table,vgiss_resloc,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26836XX/C2683625_RESLOC.LBL,840f7033082c90153e978936bcd239e8,7658
+vg-iss-2-u-c2683625,Voyager ISS,Geometric Tiepoint Table,vgiss_geoma,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26836XX/C2683625_GEOMA.TAB,a337dfe1b18e0b72b26e202227b1bbd8,20424
+vg-iss-2-u-c2683625,Voyager ISS,Geometric Tiepoint Table,vgiss_geoma,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26836XX/C2683625_GEOMA.DAT,0be9aea804f1e9e0a5d19ad59c7c0014,11776
+vg-iss-2-u-c2683625,Voyager ISS,Geometric Tiepoint Table,vgiss_geoma,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26836XX/C2683625_GEOMA.LBL,4151fac32a2b08d9e988a6e90cf5664c,9677
+vg-iss-2-u-c2683625,Voyager ISS,Documentation,vgiss_documentation,Current,/documents/VGISS_5xxx/VICAR-File-Format.pdf,fe7c8b12346f730a2d653cc393608eb0,202904
+vg-iss-2-u-c2683625,Voyager ISS,Documentation,vgiss_documentation,Current,/documents/VGISS_5xxx/User-Tutorial.txt,73bff876a774d65b8396ae0c69e60f96,50106
+vg-iss-2-u-c2683625,Voyager ISS,Documentation,vgiss_documentation,Current,/documents/VGISS_5xxx/Smith-etal-1977-SSR.pdf,e1d1d0292e45e144f03e93c543a695fd,398566
+vg-iss-2-u-c2683625,Voyager ISS,Documentation,vgiss_documentation,Current,/documents/VGISS_5xxx/Smith-etal-1977-SSR-OCR.pdf,ef773fb018f3c0c8d190f775b19391c6,21168908
+vg-iss-2-u-c2683625,Voyager ISS,Documentation,vgiss_documentation,Current,/documents/VGISS_5xxx/Saturn-Image-Anomalies.txt,9f8e632a5bf44f10a6730511ea1464c5,22926
+vg-iss-2-u-c2683625,Voyager ISS,Documentation,vgiss_documentation,Current,/documents/VGISS_5xxx/Jupiter-Image-Anomalies.txt,8b435ab7f4d7e25da7ee585699dc785f,22667
+vg-iss-2-u-c2683625,Voyager ISS,Documentation,vgiss_documentation,Current,/documents/VGISS_5xxx/Image-Processing.txt,94c37731b0d25442c537611887ba3d24,28054
+vg-iss-2-u-c2683625,Voyager ISS,Documentation,vgiss_documentation,Current,/documents/VGISS_5xxx/CDROM-Info.txt,1e0216b1a7f0b5c536550283e9d7bdec,87072
+vg-iss-2-u-c2683625,browse,Browse Image (full),browse_full,Current,/previews/VGISS_7xxx/VGISS_7206/DATA/C26836XX/C2683625_full.jpg,0398b7a454773c2865bc3fa408a304c8,24362
+vg-iss-2-u-c2683627,Voyager ISS,Geometrically Corrected Image,vgiss_geomed,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26836XX/C2683627_GEOMED.IMG,56bd73b84b9863529cffb269c01f0f40,2002000
+vg-iss-2-u-c2683627,Voyager ISS,Geometrically Corrected Image,vgiss_geomed,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26836XX/C2683627_GEOMED.LBL,8a0bd28484e5394c2e61579e3b3ac016,3324
+vg-iss-2-u-c2683627,Voyager ISS,Reseau Table,vgiss_resloc,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26836XX/C2683627_RESLOC.TAB,c01ce17344c47c56fe49db5da7421a4b,5454
+vg-iss-2-u-c2683627,Voyager ISS,Reseau Table,vgiss_resloc,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26836XX/C2683627_RESLOC.DAT,1c08a4eef2a077116cfc466d48e4af83,6656
+vg-iss-2-u-c2683627,Voyager ISS,Reseau Table,vgiss_resloc,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26836XX/C2683627_RESLOC.LBL,063466b5b51afa026e303d6c84d7ca9f,7659
+vg-iss-2-u-c2683627,Voyager ISS,Geometric Tiepoint Table,vgiss_geoma,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26836XX/C2683627_GEOMA.TAB,08c856a1f75fc8853f064cdb954c0d73,20424
+vg-iss-2-u-c2683627,Voyager ISS,Geometric Tiepoint Table,vgiss_geoma,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26836XX/C2683627_GEOMA.DAT,3d6c9a26e504e46c8529baaefe59a42f,11776
+vg-iss-2-u-c2683627,Voyager ISS,Geometric Tiepoint Table,vgiss_geoma,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26836XX/C2683627_GEOMA.LBL,25ca6e1a074fc16a3f53d31f04edf480,9678
+vg-iss-2-u-c2683627,Voyager ISS,Documentation,vgiss_documentation,Current,/documents/VGISS_5xxx/VICAR-File-Format.pdf,fe7c8b12346f730a2d653cc393608eb0,202904
+vg-iss-2-u-c2683627,Voyager ISS,Documentation,vgiss_documentation,Current,/documents/VGISS_5xxx/User-Tutorial.txt,73bff876a774d65b8396ae0c69e60f96,50106
+vg-iss-2-u-c2683627,Voyager ISS,Documentation,vgiss_documentation,Current,/documents/VGISS_5xxx/Smith-etal-1977-SSR.pdf,e1d1d0292e45e144f03e93c543a695fd,398566
+vg-iss-2-u-c2683627,Voyager ISS,Documentation,vgiss_documentation,Current,/documents/VGISS_5xxx/Smith-etal-1977-SSR-OCR.pdf,ef773fb018f3c0c8d190f775b19391c6,21168908
+vg-iss-2-u-c2683627,Voyager ISS,Documentation,vgiss_documentation,Current,/documents/VGISS_5xxx/Saturn-Image-Anomalies.txt,9f8e632a5bf44f10a6730511ea1464c5,22926
+vg-iss-2-u-c2683627,Voyager ISS,Documentation,vgiss_documentation,Current,/documents/VGISS_5xxx/Jupiter-Image-Anomalies.txt,8b435ab7f4d7e25da7ee585699dc785f,22667
+vg-iss-2-u-c2683627,Voyager ISS,Documentation,vgiss_documentation,Current,/documents/VGISS_5xxx/Image-Processing.txt,94c37731b0d25442c537611887ba3d24,28054
+vg-iss-2-u-c2683627,Voyager ISS,Documentation,vgiss_documentation,Current,/documents/VGISS_5xxx/CDROM-Info.txt,1e0216b1a7f0b5c536550283e9d7bdec,87072
+vg-iss-2-u-c2683627,browse,Browse Image (full),browse_full,Current,/previews/VGISS_7xxx/VGISS_7206/DATA/C26836XX/C2683627_full.jpg,bdcb2e9441aecd2f8e55db0504e2346f,57929
+vg-iss-2-u-c2683629,Voyager ISS,Geometrically Corrected Image,vgiss_geomed,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26836XX/C2683629_GEOMED.IMG,7fdabdbf8793c5d9ba31df0fb1e01511,2002000
+vg-iss-2-u-c2683629,Voyager ISS,Geometrically Corrected Image,vgiss_geomed,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26836XX/C2683629_GEOMED.LBL,95ad83fa9ae42be5cf61540c49713f82,3323
+vg-iss-2-u-c2683629,Voyager ISS,Reseau Table,vgiss_resloc,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26836XX/C2683629_RESLOC.TAB,a0e29b582cb0ca3f9d87f21f6b67886d,5454
+vg-iss-2-u-c2683629,Voyager ISS,Reseau Table,vgiss_resloc,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26836XX/C2683629_RESLOC.DAT,c42d4c462bde91072b3078066415601b,6656
+vg-iss-2-u-c2683629,Voyager ISS,Reseau Table,vgiss_resloc,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26836XX/C2683629_RESLOC.LBL,cb06eea702709b86cbb2c910735d1ee6,7658
+vg-iss-2-u-c2683629,Voyager ISS,Geometric Tiepoint Table,vgiss_geoma,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26836XX/C2683629_GEOMA.TAB,12d8b77e6fadd31346a879b24d977bf3,20424
+vg-iss-2-u-c2683629,Voyager ISS,Geometric Tiepoint Table,vgiss_geoma,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26836XX/C2683629_GEOMA.DAT,ca39441477e047773905c4418c2d0647,11776
+vg-iss-2-u-c2683629,Voyager ISS,Geometric Tiepoint Table,vgiss_geoma,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26836XX/C2683629_GEOMA.LBL,20b457653255b53c5d64358491b1e4a1,9677
+vg-iss-2-u-c2683629,Voyager ISS,Documentation,vgiss_documentation,Current,/documents/VGISS_5xxx/VICAR-File-Format.pdf,fe7c8b12346f730a2d653cc393608eb0,202904
+vg-iss-2-u-c2683629,Voyager ISS,Documentation,vgiss_documentation,Current,/documents/VGISS_5xxx/User-Tutorial.txt,73bff876a774d65b8396ae0c69e60f96,50106
+vg-iss-2-u-c2683629,Voyager ISS,Documentation,vgiss_documentation,Current,/documents/VGISS_5xxx/Smith-etal-1977-SSR.pdf,e1d1d0292e45e144f03e93c543a695fd,398566
+vg-iss-2-u-c2683629,Voyager ISS,Documentation,vgiss_documentation,Current,/documents/VGISS_5xxx/Smith-etal-1977-SSR-OCR.pdf,ef773fb018f3c0c8d190f775b19391c6,21168908
+vg-iss-2-u-c2683629,Voyager ISS,Documentation,vgiss_documentation,Current,/documents/VGISS_5xxx/Saturn-Image-Anomalies.txt,9f8e632a5bf44f10a6730511ea1464c5,22926
+vg-iss-2-u-c2683629,Voyager ISS,Documentation,vgiss_documentation,Current,/documents/VGISS_5xxx/Jupiter-Image-Anomalies.txt,8b435ab7f4d7e25da7ee585699dc785f,22667
+vg-iss-2-u-c2683629,Voyager ISS,Documentation,vgiss_documentation,Current,/documents/VGISS_5xxx/Image-Processing.txt,94c37731b0d25442c537611887ba3d24,28054
+vg-iss-2-u-c2683629,Voyager ISS,Documentation,vgiss_documentation,Current,/documents/VGISS_5xxx/CDROM-Info.txt,1e0216b1a7f0b5c536550283e9d7bdec,87072
+vg-iss-2-u-c2683629,browse,Browse Image (full),browse_full,Current,/previews/VGISS_7xxx/VGISS_7206/DATA/C26836XX/C2683629_full.jpg,96ce6d8d377d33e952943e16001803ae,63037

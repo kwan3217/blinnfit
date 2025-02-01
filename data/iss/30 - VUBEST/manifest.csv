@@ -1,0 +1,21 @@
+OPUS ID,Product Category,Product Type,Product Type Abbrev,Version,File Path,Checksum,Size
+vg-iss-2-u-c2684004,Voyager ISS,Geometrically Corrected Image,vgiss_geomed,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26840XX/C2684004_GEOMED.IMG,f1871de5054c04d932a984902162c0d9,2002000
+vg-iss-2-u-c2684004,Voyager ISS,Geometrically Corrected Image,vgiss_geomed,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26840XX/C2684004_GEOMED.LBL,1ac780d1789b4c9b1d942d94ff0cb2f2,3305
+vg-iss-2-u-c2684004,Voyager ISS,Reseau Table,vgiss_resloc,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26840XX/C2684004_RESLOC.TAB,64d2261eadc8e89db58ecfe9542364f5,5454
+vg-iss-2-u-c2684004,Voyager ISS,Reseau Table,vgiss_resloc,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26840XX/C2684004_RESLOC.DAT,3e5acd4a6e21bc993c5f28ab42eb2a4b,6656
+vg-iss-2-u-c2684004,Voyager ISS,Reseau Table,vgiss_resloc,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26840XX/C2684004_RESLOC.LBL,7835b0dfe38afa64131a6eda638687fd,7640
+vg-iss-2-u-c2684004,Voyager ISS,Geometric Tiepoint Table,vgiss_geoma,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26840XX/C2684004_GEOMA.TAB,bb796e111cec1c9e4d262af333628dba,20424
+vg-iss-2-u-c2684004,Voyager ISS,Geometric Tiepoint Table,vgiss_geoma,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26840XX/C2684004_GEOMA.DAT,3479cf490376b46b01a3d04ce13a9468,11776
+vg-iss-2-u-c2684004,Voyager ISS,Geometric Tiepoint Table,vgiss_geoma,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26840XX/C2684004_GEOMA.LBL,fca7f7cf2c1576745b43bcfaba964c9b,9659
+vg-iss-2-u-c2684004,Voyager ISS,Extra Preview (geometrically corrected),vgiss_geomed_browse,Current,/volumes/VGISS_7xxx/VGISS_7206/BROWSE/C26840XX/C2684004_GEOMED.JPG,7942b39f6082a5c6f9d097a2883157c1,64294
+vg-iss-2-u-c2684004,Voyager ISS,Extra Preview (geometrically corrected),vgiss_geomed_browse,Current,/volumes/VGISS_7xxx/VGISS_7206/BROWSE/C26840XX/C2684004_GEOMED.LBL,70e26a7772fd3ee15f436fb30a337c36,857
+vg-iss-2-u-c2684006,Voyager ISS,Geometrically Corrected Image,vgiss_geomed,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26840XX/C2684006_GEOMED.IMG,aa21c8900b5033d42e945e7b3b29b85e,2002000
+vg-iss-2-u-c2684006,Voyager ISS,Geometrically Corrected Image,vgiss_geomed,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26840XX/C2684006_GEOMED.LBL,3a1115feaba04da039246c6cf5ed4476,3305
+vg-iss-2-u-c2684006,Voyager ISS,Reseau Table,vgiss_resloc,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26840XX/C2684006_RESLOC.TAB,4947a8d576ac3087149acd20d2896904,5454
+vg-iss-2-u-c2684006,Voyager ISS,Reseau Table,vgiss_resloc,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26840XX/C2684006_RESLOC.DAT,c73ee4f80b4df012b8cc0f1558925710,6656
+vg-iss-2-u-c2684006,Voyager ISS,Reseau Table,vgiss_resloc,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26840XX/C2684006_RESLOC.LBL,b68411f9f3f830d45a7ea2cb473d7278,7640
+vg-iss-2-u-c2684006,Voyager ISS,Geometric Tiepoint Table,vgiss_geoma,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26840XX/C2684006_GEOMA.TAB,95f763199178d8e3759e8451d5bfd5f0,20424
+vg-iss-2-u-c2684006,Voyager ISS,Geometric Tiepoint Table,vgiss_geoma,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26840XX/C2684006_GEOMA.DAT,a12fcbe40bd0e8bb758a8a5d782b5911,11776
+vg-iss-2-u-c2684006,Voyager ISS,Geometric Tiepoint Table,vgiss_geoma,Current,/volumes/VGISS_7xxx/VGISS_7206/DATA/C26840XX/C2684006_GEOMA.LBL,9febcce82c7eabe08780cdbfaa812187,9659
+vg-iss-2-u-c2684006,Voyager ISS,Extra Preview (geometrically corrected),vgiss_geomed_browse,Current,/volumes/VGISS_7xxx/VGISS_7206/BROWSE/C26840XX/C2684006_GEOMED.JPG,373991f3a14fdf4b6a9678f7c365af57,34619
+vg-iss-2-u-c2684006,Voyager ISS,Extra Preview (geometrically corrected),vgiss_geomed_browse,Current,/volumes/VGISS_7xxx/VGISS_7206/BROWSE/C26840XX/C2684006_GEOMED.LBL,eec88e4db3a202c41553d2b8224f287d,857
