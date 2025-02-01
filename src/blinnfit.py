@@ -1,20 +1,20 @@
 from contextlib import closing
 
-from spiceypy import furnsh, spkezr, str2et, timout, sxform, edlimb, pxform, SpiceFRAMEDATANOTFOUND, Ellipse
+from spiceypy import furnsh, spkezr, str2et, timout, edlimb, pxform, SpiceFRAMEDATANOTFOUND
 import spiceypy as cspice
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import matplotlib.widgets as widgets
-import os
 import sqlite3
 
 from kwanmath.gaussian import correlation_matrix, infamily
 from kwanmath.geodesy import llr2xyz
-from kwanmath.vector import vlength, vnormalize, vcross
 from kwanmath.optimize import curve_fit, bounded, positive, rbounded
 
-from bsc import load_catalog, GetMag, LimitMag, GetDec, GetRA, GetName
+from blinnfit.camera import cmatrix, project, make_sky
+from blinnfit.videos import projects
+from bsc import load_catalog, GetMag, GetDec, GetRA, GetName
 
 from kwanmath.interp import linterp
 
@@ -25,396 +25,6 @@ cspice.furnsh('data/spice/vgr1.tm')
 cspice.furnsh('data/spice/vgr2.tm')
 cspice.furnsh('data/spice/lsk/naif0012.tls')
 cspice.furnsh('data/spice/spk/de430.bsp')
-
-goodstarsSuperTraj=[
-           1553,1097, 191, 765, 613, 289, 456, 472, 968,1000,
-           1292,1443, 411,1400,1243, 979, 801,1013,1492, 791,
-            741,1149,1020,1496,1399, 724,1569,1148,1108, 467,
-           1475, 887,  47, 666, 133,1414, 241, 909, 845,1109,
-           1021, 501,1045, 436,  88,1323, 848,  65, 277,  22,
-            980,1611, 379, 495, 755,1585, 931, 300,1585,1371,
-           1291, 205, 278,  92, 197, 886, 565, 357, 159,1491,
-            494,  37, 391, 515,   1, 175,1290,1320,1035,1199,
-            237     , 790,1060, 908, 227, 510, 877, 753,1136,
-            433,1269, 750,1147, 489, 516, 386,1474,1318, 226,
-
-            580, 397, 661, 850,1146, 432, 220,1058, 308, 567,
-            879,1497,1416,1324,1002,1124,1159, 301, 172,1444,
-            530, 172,  90, 694,1125, 107, 821, 517,1557,1526,
-            122, 458, 682,  94,1189, 811, 744, 263, 737,  98,
-           1046,1446, 173,1139, 228,  57,1062, 727, 111,1229,
-            216, 128, 318, 491, 552,1007, 563, 454, 252, 346,
-            949, 309, 460,1064, 648,1039,1595, 871, 614, 649,
-            387,  75, 200, 240, 142, 243, 334, 163,1387, 555,
-           1217,1559,  24, 115, 706,  39, 992, 347,  83,1376,
-
-            214, 193, 594, 972, 951, 924, 208, 239,  36,1510,
-            584, 505     , 595, 194, 983, 784,1421,  13,1390,
-           1378, 586, 603,1092,1308,1222,1434,1142, 177, 860,
-            618, 633, 862,1360, 192, 566,1589, 591, 738, 100,
-            154,1602, 955, 135, 392, 900, 564, 118, 376, 746,
-            147, 711, 686,  16,  30,1433,  60,  43, 796, 815,
-            785, 718,  52, 285, 320, 230, 976, 835,1513, 960,
-             81,1267,1145,1181, 284,1118, 305,1194,1422,1350,
-            513, 689, 461, 182, 161, 448, 543, 872, 470, 678,
-            479, 371, 660,1183, 275, 557,  93, 700, 375, 732,
-
-            722, 855,1071, 646,1604,1423, 907, 576, 307, 977,
-           1184, 677, 805, 953, 306, 659, 843,1317, 106, 143,
-            714, 840, 328,1001,1214,1495,1260,1614,1242,1173]
-
-
-goodstarsVoyagerUranus={
-    1015, 481,1545,1127, 675, 302, 739,  85, 244, 444,
-    1154, 154, 392, 288,1333,1128, 924, 983,1008,1378,
-    1359,  51, 208, 239, 100, 135,1067, 972, 118,1112,
-    1280,1573,1206,1602,1222, 584, 585, 994, 505,1390,
-     214,  24, 115, 706,  83,1279, 181,1404,1387     ,
-    1392,  36, 193,1329, 168, 951, 229, 617,1278,1389,
-     793,  39, 190,1530,1026,  75,1065,1207,1434, 784,
-    1092, 586, 603, 136, 240, 595,1542, 271, 533,1233,
-    1433,1508, 871,1040, 950, 224, 774,1420,1453,1308,
-     992, 649, 648, 935, 992, 194,1142, 900,1348,1421,
-
-    1391, 824, 730,1164, 395, 564,1376,1192,1544, 287,
-     440,  96, 695, 834, 899, 851,  13, 991,1230, 460,
-     221,1218, 912,1510, 200,1047,1506, 177,1687,1923,
-         2155,1785,2834,2628,2157,2314,2212,2313,2977,
-    2445,2950,2883,1852, 614,2623,1871,2574,1417, 264,
-    2389,2776,1595,2439,2388,1922,1153, 128, 738,2149,
-     252,2190,2745, 594, 347,1219,1874, 163,2128,1948,
-    2189, 142, 468,1083,1824,2836,1688,2553,2080,2064,
-    2412,2555,1879,2972,1924,1823,2552,2944,1099,2837,
-    1664,1745,2782,2911,2881,2882,2261,2411,2410,1898,
-
-    1822,1966,2652,2946,2945,2654,2409,2521,2971,1764,
-    2441,2970,1684,2154,2522,1482,2678,2063,1290,2915,
-     823, 522, 498,  79,1683, 152, 460, 823,2775,2813,
-    1246,1661, 957, 153,1896,2519,1619, 346, 309, 188,
-    2362,2393,2265, 656,1466,2835,2487,1052,2779,2744,
-     333,2711,2101,2812,1432,2153,1997,1967,1726,2444,
-    2391, 243, 555,1288,2312,2784,2193, 387, 684,1299,
-     491,1191,1090, 216, 531,1597,1783,2711, 454,2151,
-     948, 949,1963,1152, 263,1007, 199, 111, 552, 334,
-     550, 822, 563, 910, 744,1051, 304, 756, 429,2594,
-
-      78, 355,1804,2079, 743, 453,  94,  77,2594,1450,
-    2672,2360, 517,1682, 821, 548, 811,   3, 439, 583,
-    1375,  10,  76, 551,1462,  57,1062, 757, 335,1897,
-    2233, 141, 767, 262, 183,1941, 735,1461,1189, 736,
-    1459,1993,1161, 964, 622, 647, 683,1139,  63,1080,
-    1140,1061,1004,  99, 442,  41,1231,1451, 151, 211,
-    2941,1039,2062,  17, 737,1761,1962, 474,  17, 933,
-     122, 458,1356,1803, 682,  23, 934,2058, 727,1216,
-    1740, 420, 524, 707, 705,3239,3607,3785,3046,2575,
-    3277,3658,2466,3698,3932,3933,3005,3075,1559,2516,
-
-    3077,3003,2179,3272, 497,2407,3199,2179,3921,2481,
-    2517,2481,3648,2673,3452,3743,3883,3833,1826,2105,
-    3659,3206,3487,2105,3417,3207,4212,4135,3931,4091,
-    3378,4214,3657,3699,3738,3832,4330,4755,3449,3241,
-    4639,3562,3700,4913,3830,3047,3162,4092,3013,3421,
-    4096,4390,2913,2842, 157,1115,2841,2266,2023, 147,
-     354,1166,1102,3568, 915,2602, 376,3242,3611, 914,
-    3419,3745,2625,2626,1827,3494,1807,1786,3168,3942,
-     686,2159,2364, 478,2132,3382,1901,2315,3493,1970,
-     365,2342,2746,2948, 854,1999, 250,3205,2103,1949,
-
-    3122,1663,1028, 217,3278,3488,3516,1377,3559,2488,
-    3834, 637, 852,1049,3121,2554,2713,3739,3415,2551,
-     374,1050,3737, 539,1049, 504, 852,3930, 127, 381,
-    2264,1141,1850,  11,3701, 119,2237,1968,2263,1806,
-    1644,1332,3934,1027,2778,3203,2677,2340,3301,1163,
-      59, 169,1685,2390, 212,3084, 788,2152,1303,2440,
-    3082,3697,2942,3556,3654,1622, 145,  61,1032, 256,
-    1120,2369, 644,1437, 688,2752,2006, 676,2849,1954,
-    2606, 904,2108,1195,1054,1069,3021,3020, 578,3286,
-    1905,1121,3102,3182, 541,1286,3255,3254, 418, 140,
-
-    1835,3894,2113
-}
-
-goodstarsVoyagerUranus=set(range(4000))
-#Stars which are visible but shouldn't be used (for instance too close to other stars)
-# For instance -- if two stars are within about 10 pixels of each other, they will inevitably
-# be in each other's boxes. If one is much brighter than the other, the dimmer star will still
-# get the position of the brighter one, with a good fit measurement. In this case, put the
-# brighter one (with the lower index) in the list above, and the dimmer one in the list below
-# so that we know that it was excluded on purpose, rather than neglected.
-badstarsVoyagerUranus={
-    729, 313, 315,1162,1298, 965,  20, 870,2238,4642,
-   4914,4809,1575,1598,1331,3879,1762
-}
-
-# In case there is any intersection, subtract it out.
-goodstarsVoyagerUranus-=badstarsVoyagerUranus
-
-goodstarsVoyagerNeptune=goodstarsVoyagerUranus|{
-   2105,2021,1826,2913,2488, 157, 914,1115,1807,2841,
-   2266, 696, 147, 915, 376,2159,2043, 354,1166,2602,
-   1102,1647, 746,1168, 901,2023,2656, 686,2749,1786,
-    711,2657,1901,2364, 618,1084, 431, 164,2316,1117,
-    825,1691, 615,2494,1309,2414, 526, 230,1118,2213,
-   2066, 872,  16,2918,2629,1468, 377, 642,1747, 614,
-    797,1576,1250,2820, 525,2660, 348,1119, 507, 798,
-   1144,1310,2415,2162,1790,2067, 959,1791,1973,1436,
-    926,1882,1974, 937, 258,1730, 698, 598,1512, 902,
-   1709, 527, 535, 358,2578,1379,1010, 816,1857, 305,
-
-   1513,1628, 891,2267,1408, 960,2025,2296, 835,1792,
-   1252,2497,1731, 137,2887,2318,1748,2888,2498, 826,
-    687,1211,2039,2633,2164,2633,1194,2027,2319,1884,
-    272, 320, 626, 259, 297,1349,2495,2559,2108,1195,
-   1054, 553,2751, 817,2448,1749,1069,2135,2499,2851,
-    330,2134, 668,1335,1955, 836,1017,2634,1579,2397,
-     91, 261,1565,1236,  48,1668, 105,2215,1808,2752,
-    688, 778,1365,2166, 275,2245,2609,2846,1831, 170,
-   1930, 518,1380,2244,2852,1487,2269,1669, 905,1070,
-    337,2299,2635,2006, 676,1121,  93,1030,2849, 777,
-
-   1954,2606, 904,2085,2822,2848,3497,3242,3610,3743,
-   3519,3883,3344,3208,3380,1851,3421,3660,3988,3833,
-   3449,3931,3562,3700,3378,3207,3162,3417,3559,3013,
-   3487,3241,3048,3932,2466,3012,3608,3239,3785,3452,
-   1182, 947, 232,3405,2148,2650,1540,3046,2940,1177,
-   2311,1503,1559, 228,2875,3874,2359,1217, 705, 123,
-    921,1448,1558,1557,  14, 173,1175,1699,3042,2648,
-   1201,2480,2098,2384,1640,2078,1526,3135, 787,1245,
-   2035,2180,1111, 342,1079,2805, 720, 162,1920, 623,
-   2059, 463, 329,2479,1078, 715,1215, 592, 537,2355,
-
-   1354, 484, 547,1522,2540,2014,2937,2619,1942, 251,
-    255,1539,2462,1592,1036, 242, 869,1173, 608,1048,
-   3041,3153,1264,1401,2095,3198,  62,  95, 820,2799,
-   1778,1244,2406,  21, 437, 781,1123,1776,3473,1435,
-    101, 270, 457,2353, 166,1818, 932,1037,3510, 897,
-    878,1171,1137,2144,2900,2435, 857, 196, 413,2478,
-   2590, 955,1657,1174, 719,1917,2700,2354,1523, 281,
-    810, 502,1271,2175,3292, 632,3149, 419, 502, 962,
-   2699,2055,2538, 529,2092,2644,2966,3072,3363,2460,
-   2208,1918,2351, 664,1188, 184,2207, 201,1933,2588,
-
-   1722,1779,1228,2383,1228,1779,1722,1342,2225,2477,
-    325, 876,1138,2010, 273,2698,1044,3902,2033,1887,
-    206,2013,2457,2229, 176,2842,3611,3168,3051,2290,
-   3127,3169,  30,1729, 796,1971,  43,3420,3563,3878,
-   2211,2627,1900,1926,3829, 344, 803,2493,1116,1361,
-   3307,2365,3885,1881,1208,1405, 310,2973, 841, 638,
-    770,2833,3240,1247,3985,3740, 593,2496, 512,3213,
-   3345,3458,3525,3705,1629, 903, 144,1283, 881,3053,
-   2952,2295,2980, 641, 266,1952,2601, 388,2916,1953,
-   2600, 499,2392, 523,2780,2598, 655, 465,3407,2830,
-
-   1805,1098, 643, 776,2528,3573,2470,3616, 143,1103,
-   3023, 572, 577,2956,1364,2683,2889,3215,1750,1235,
-    131,1828, 610,2291,2447,1856,3748,2241,2246,3100,
-   1186,2926,3577,3535,3529,3944,2259,2845,2781,2617,
-   2617,3154,2735,2934,1842,2459, 580, 670,1445,1698,
-   2016,3401,1723,2408, 421,1338,2417,3753,2196,1581,
-    220,1834,1146, 432,2991,2326,3754, 906, 961,1548,
-    837,3798,2564,2042,2218, 386, 226, 661,1147,1906,
-   3389,3355,2761, 754, 560,2758, 489, 510,1982,1735,
-   1318,1838, 750,2402,1633,1058,1714, 227, 516,1477,
-
-   1172, 237,3195,3111,1960,2256, 175, 357,1270, 503,
-   3973,2862,3323,1983,3263, 799, 278,2964,3588,  44,
-    886,2228, 742, 269, 565,   1, 790, 799, 159,3468,
-    980,2725,3751,3021,3020,2396,2954,2469,3997,3347,
-   3574,2581,3134,2920,3460,3792,3055,3056,3057,3704,
-   3947,2983,1827,3382,3054,3172,3843,3016,3942,3787,
-   3375,3658, 524, 707,2575,3277,3206,2622,2545,3297,
-   2831,3008,3273, 318,2938,3112,3151,3813,3443,3439,
-   2898,2696,2763,2090,2426, 752,1588,3354,3140,1322,
-   3812, 895,  40, 669,3713,1442, 367,2454,3906,3360,
-
-   2227, 989,3765,1567,2425,2453,2253, 874,2071,1584,
-   2374,2050,1384,1800,2760, 249, 536,1768, 866,   5,
-   2115,2932,2928,1132,1582,1756,1197,2566,3441,2300,
-   1606, 167,3029,3633, 324,  46, 620,2376,3972,3441,
-    103,3756,3859,  15, 808, 692,1493,1915,3107,3359,
-    1427,3068,1913,942,2927,751,1170,
-
-}
-
-goodstarsVoyagerNeptune=set(range(9000))
-
-badstarsVoyagerNeptune=badstarsVoyagerUranus|{
-   1331,1598,1603,2492, 997,1031,3879,3933,1765,3276,
-   1313,1944, 352, 405,1385,2341,3880,2232, 938,1793,
-   3060,3416,2814,2188,3607,3011,3724, 149,
-}
-
-goodstarsVoyagerUranus-=badstarsVoyagerUranus
-goodstarsVoyagerUranus=list(goodstarsVoyagerUranus)
-
-goodstarsVoyagerNeptune-=badstarsVoyagerNeptune
-goodstarsVoyagerNeptune=list(goodstarsVoyagerNeptune)
-
-
-projects={
-    "SuperTrajectory":(675,800,"data/frames/SuperTrajectory/frame%04d.png",goodstarsSuperTraj),
-    "VoyagerUranusQuick":(201,533,'data/frames/VoyagerUranus/frame%04d.png',None,),
-    "VoyagerUranusDetailed": (891, 533, 'data/frames/VoyagerUranus/frame%04d.png',goodstarsVoyagerUranus,badstarsVoyagerUranus,{
-        #Spice ID
-        #     Name     Pre-encounter radius (km)
-        #                    a        b        c (polar) from pck00010.tpc
-        799:("Uranus",25550,25559  ,25559  , 24973),
-        701:("Ariel",   665,  581.1,  577.9,   577.7),
-        702:("Umbriel", 555,  584.7,  584.7,   584.7),
-        703:("Titania", 800,  788.9,  788.9,   788.9),
-        704:("Oberon",  815,  761.4,  761.4,   761.4),
-        705:("Miranda", 250,  240.4,  234.2,   232.9)
-    },None),
-    "VoyagerUranusHD": (5504, 1400, 'data/frames/VoyagerUranusHD/frame%04d.png',goodstarsVoyagerUranus,badstarsVoyagerUranus,{
-        #Spice ID
-        #     Name     Pre-encounter radius (km)
-        #                    a        b        c (polar) from pck00010.tpc
-        799:("Uranus",25550,25559  ,25559  , 24973,0.0,None),
-        701:("Ariel",   665,  581.1,  577.9,   577.7,0.0,799),
-        702:("Umbriel", 555,  584.7,  584.7,   584.7,0.0,799),
-        703:("Titania", 800,  788.9,  788.9,   788.9,0.0,799),
-        704:("Oberon",  815,  761.4,  761.4,   761.4,0.0,799),
-        705:("Miranda", 250,  240.4,  234.2,   232.9,0.0,799)
-    },[41910,42300,42600,44800,45700,47200,47700,48300,51200]), # 6,5,4,alpha,beta,eta,gamma,delta,epsilon
-    "VoyagerNeptune": (1830, 533, 'data/frames/VoyagerNeptune/frame%04d.png', goodstarsVoyagerNeptune, badstarsVoyagerNeptune,{
-        #Spice ID
-        #     Name     Pre-encounter radius (km)
-        #                    a        b        c (polar) from pck00010.tpc
-        899:("Neptune",24781,24764  , 24764  ,24341),
-        801:("Triton" , 1500, 1352.6,  1352.6,  1352.6),
-        802:("Nereid" ,  400,  170  ,   170  ,   170), #Radius from Neptune Travel Guide p146
-        803:("Naiad N6",   0,   29  ,    29  ,    29), #N6
-        804:("Thalassa N5",0,   40  ,    40  ,    40), #N5
-        805:("Despina N3" ,0,   74  ,    74  ,    74), #N3
-        806:("Galatea N4" ,0,   79  ,    79  ,    79), #N4
-        807:("Larissa N2" ,0,  104  ,   104  ,    89), #N2
-        808:("Proteus N1" ,0,  218  ,   208  ,   201), #N1
-    },[41000.0,52000.0,61000.0]
-    ),
-    "VoyagerNeptuneB": (
-    2165, 533, 'data/frames/VoyagerNeptuneB/frame%04d.png', goodstarsVoyagerNeptune, badstarsVoyagerNeptune, {
-        # Spice ID
-        #     Name     Pre-encounter radius (km)
-        #                    a        b        c (polar) from pck00010.tpc
-        899: ("Neptune", 24781, 24764, 24764, 24341,0.0,None),
-        801: ["Triton", 1750.0, 1352.6, 1352.6, 1352.6,-185.0,899],
-        802: ("Nereid", 400, 170, 170, 170,0.0,899),  # Radius from Neptune Travel Guide p146
-        803: ("Naiad N6", 0, 29, 29, 29,0.0,899),  # N6
-        804: ("Thalassa N5", 0, 40, 40, 40,0.0,899),  # N5
-        805: ("Despina N3", 0, 74, 74, 74,0.0,None),  # N3
-        806: ("Galatea N4", 0, 79, 79, 79,0.0,None),  # N4
-        807: ("Larissa N2", 0, 104, 104, 89,0.0,None),  # N2
-        808: ("Proteus N1", 0, 218, 208, 201,0.0,None),  # N1
-         10: ("Sun"    , 800000.0, 218, 208, 201,0.0,None),  # N1
-        399: ("Earth",   6371.0, 218, 208, 201,0.0,None),  # N1
-    }, [42800.0, 54400.0, 63400.0,68400.0]
-    )
-}
-
-def cmatrix(loc=None,look=None,sky=None):
-    """
-
-    :param loc: Location of camera, equivalent to camera{location...}
-    :param look: Look-at point of camera, equivalent to camera{look_at...}
-    :param sky: Sky vector of camera, equivalent to camera{sky...}
-    :return: Camera matrix which transforms a global vector to a vector in camera space
-    We will return a 4x4 matrix which will transform a vector in homogeneous coordinates into
-    the camera frame. This matrix is:
-     [a b c xt]
-     [d e f yt]
-     [g h i zt]
-     [0 0 0  1]
-    Multiply this matrix by a 4-element column vector, with the last element being 1
-    if the point is a finite distance from the camera (and thus affected by translation)
-    zero if the point is infinitely far away, like a star, and thus unaffected by translation.
-    The camera frame is set up such that the look direction is +z, right is +x, and up is +y.
-
-    The coefficients a through i could in theory describe a matrix with arbitrary scaling,
-    shearing, mirroring, etc. In practice this code will only ever return a matrix which describes
-    a pure rotation.
-    """
-
-    #Calculate the relative look direction
-    look_rel = look - loc
-    assert vlength(look_rel)>0,"Camera look_at same as location"
-    look_rel=vnormalize(look_rel)
-
-    #Calculate the right vector as the cross product of the relative look and sky vector
-    right=vcross(look_rel,sky)
-    assert vlength(right)>0,"Camera looking at sky"
-    right=vnormalize(right)
-
-    down=vcross(look_rel,right) #guaranteed to be unit-length since product of two perpendicular unit-length vectors
-
-    r=np.zeros((4,4))
-    r[0:3,0,None]=right
-    r[0:3,1,None]=down
-    r[0:3,2,None]=look_rel
-    #result[0:3,3]=-loc
-    r[3,3]=1
-    t=np.zeros((4,4))
-    t[0,0]=1
-    t[1,1]=1
-    t[2,2]=1
-    t[3,3]=1
-    t[0:3,3,None]=loc
-    result=t@r
-    result=np.linalg.inv(result)
-    return result
-
-
-def project(right=None,angle=None,width=None,height=None,target_c=None,out_nan:bool=True):
-    """
-    Project the target into the camera field of view
-    :param right: Length of Right vector, equivalent to camera{right -x*...}.
-                  This controls the aspect ratio. Note that a right-handed
-                  camera should use a positive value for right. The up vector is
-                  implicitly camera{up y*1 ...} .
-    :param angle: Field-of-view angle in degrees, equivalent to camera{angle...}
-                  Length of direction vector is calculated from this and right
-    :param width: Width of image in pixels, equivalent to image_width
-    :param height: Height of image in pixels, equivalent to image_height
-    :param target: 3D position of point to project in camera coordinates.
-                   If your point is in world coordinates, transform it first
-                   with cmatrix(...)@target
-    :return: 2D position on camera, in the form of a 2xN numpy array. Row 0 is
-             horizontal coordinate, row 1 is vertical
-    """
-    #Convert to normalized screen coordinates. In this frame, the screen is on a plane perpendicular and
-    #out along the z axis The edges of the screen are at +-0.5*up and +-0.5*right. Angle determines the distance
-    #between the camera and the plane of the screen. Using the image at http://www.povray.org/documentation/view/3.7.0/246/
-    #as a reference, tan(angle/2)=0.5*right/direction. We can solve this for direction:
-    # tan(angle/2)*direction=0.5*right
-    # direction=0.5*right/tan(angle/2)
-    direction=0.5*right/np.tan(np.radians(angle)/2)
-    #if the z component is negative, we don't want to plot. Do this by setting the z component to NaN if it was negative.
-    target_c[2,target_c[2,...]<0]=float('NaN')
-    #If the target is at the screen, then the x and y coordinates are already what we want. If it is twice as far,
-    #then we need to divide x and y by 2. If half as far, then they need to multiply by two. In general, multiply
-    # by direction/z. If we do this right, the z coordinate will become equal to direction, which indicates the other
-    # components are normalized screen coordinates
-    target_scl=target_c[0:2,...]*direction/target_c[2,...]
-    result=np.zeros(target_scl.shape)
-    cx=width/2
-    cy=height/2
-    up=1
-    rx=linterp(-0.5*right,-width /2,0.5*right,width /2,target_scl[0,...])
-    ry=linterp(-0.5*up,   -height/2,0.5*up   ,height/2,target_scl[1,...])
-    result[0,...]=rx+cx
-    result[1,...]=ry+cy
-    if out_nan:
-        result[:,result[0,...]<0]=float('NaN')
-        result[:,result[1,...]<0]=float('NaN')
-        result[:,result[0,...]>width]=float('NaN')
-        result[:,result[1,...]>height]=float('NaN')
-    return result
-
-
-def make_sky(clock,dir):
-    ssky=vnormalize(vcross(dir,np.array([[0.0],[0.0],[1.0]])))
-    csky=vnormalize(vcross(ssky,dir))
-    sky=np.cos(np.deg2rad(clock))*csky+np.sin(np.deg2rad(clock))*ssky
-    return sky
 
 
 def curve_fitsky_interface(starvec,lat_c,lon_c,angle,clock,right_denom,*,width,height):
@@ -471,7 +81,7 @@ class CameraMount(object):
         self.casename=casename
 
         #initialize by table lookup
-        self.framenum0,self.framenum1,self.framepat,self.goodstars,self.badstars,self.spiceobjs,self.rings=projects[casename]
+        self.framenum0,self.framenum1,self.framepat,self.goodstars,self.badstars,self.spiceobjs,self.rings= projects[casename]
         self.framenum=self.framenum0
 
         #set up graphics
@@ -752,10 +362,10 @@ class CameraMount(object):
         self.conn.commit()
     def project_stuff(self):
         dir=llr2xyz(lat=self.lat_c,lon=self.lon_c)
-        sky=make_sky(self.clock,dir)
-        self.C = cmatrix(loc=np.zeros((3,1)), look=dir, sky=sky)
+        sky= make_sky(self.clock, dir)
+        self.C = cmatrix(loc=np.zeros((3, 1)), look=dir, sky=sky)
         self.star_pix = project(right=4 / self.right_denom, angle=self.angle, width=self.width,
-                                 height=self.height, target_c=self.C @ self.star_vec)
+                                height=self.height, target_c=self.C @ self.star_vec)
 
         print("image_width  ", self.width)
         print("image_height ", self.height)
@@ -835,8 +445,8 @@ class CameraMount(object):
                         v_orbit[:3,i_et]=spkezr(str(i_spice),this_et,"ECLIPB1950","NONE",str(parent))[0][0:3]
                     v_orbit[0:3,:]-=v_orbit[0:3,None,50]
                     v_orbit[0:3,:]+=rmoon_vi
-                    pixorbit=project(right=4 / self.right_denom, angle=self.angle, width=self.width,
-                                 height=self.height, target_c=self.C @ v_orbit)
+                    pixorbit= project(right=4 / self.right_denom, angle=self.angle, width=self.width,
+                                      height=self.height, target_c=self.C @ v_orbit)
                     self.orbplot[i_spice].set_xdata(pixorbit[0,:])
                     self.orbplot[i_spice].set_ydata(pixorbit[1,:])
                     self.orbplot[i_spice].set_visible(True)
