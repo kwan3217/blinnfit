@@ -12,6 +12,7 @@ from kwanmath.gaussian import correlation_matrix, infamily
 from kwanmath.geodesy import llr2xyz
 from kwanmath.optimize import curve_fit, bounded, positive, rbounded
 
+from blinnfit import main
 from blinnfit.camera import cmatrix, project, make_sky
 from blinnfit.videos import projects
 from bsc import load_catalog, GetMag, GetDec, GetRA, GetName
@@ -679,15 +680,4 @@ class CameraMount(object):
             self.framem(event)
             self.fit(event)
 
-def main():
-    boxfig = None
-    boxax = None
-    boximg = None
-    callback=CameraMount(casename="VoyagerUranusHD")
-
-    plt.show()
-
-
-if __name__=="__main__":
-    main()
 
