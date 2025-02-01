@@ -1,4 +1,6 @@
-from spiceypy import furnsh, spkezr, str2et, timout, sxform, edlimb, pxform
+from contextlib import closing
+
+from spiceypy import furnsh, spkezr, str2et, timout, sxform, edlimb, pxform, SpiceFRAMEDATANOTFOUND, Ellipse
 import spiceypy as cspice
 import numpy as np
 import matplotlib.pyplot as plt
@@ -104,10 +106,35 @@ goodstarsVoyagerUranus={
     1140,1061,1004,  99, 442,  41,1231,1451, 151, 211,
     2941,1039,2062,  17, 737,1761,1962, 474,  17, 933,
      122, 458,1356,1803, 682,  23, 934,2058, 727,1216,
-    1740, 420,
+    1740, 420, 524, 707, 705,3239,3607,3785,3046,2575,
+    3277,3658,2466,3698,3932,3933,3005,3075,1559,2516,
 
+    3077,3003,2179,3272, 497,2407,3199,2179,3921,2481,
+    2517,2481,3648,2673,3452,3743,3883,3833,1826,2105,
+    3659,3206,3487,2105,3417,3207,4212,4135,3931,4091,
+    3378,4214,3657,3699,3738,3832,4330,4755,3449,3241,
+    4639,3562,3700,4913,3830,3047,3162,4092,3013,3421,
+    4096,4390,2913,2842, 157,1115,2841,2266,2023, 147,
+     354,1166,1102,3568, 915,2602, 376,3242,3611, 914,
+    3419,3745,2625,2626,1827,3494,1807,1786,3168,3942,
+     686,2159,2364, 478,2132,3382,1901,2315,3493,1970,
+     365,2342,2746,2948, 854,1999, 250,3205,2103,1949,
+
+    3122,1663,1028, 217,3278,3488,3516,1377,3559,2488,
+    3834, 637, 852,1049,3121,2554,2713,3739,3415,2551,
+     374,1050,3737, 539,1049, 504, 852,3930, 127, 381,
+    2264,1141,1850,  11,3701, 119,2237,1968,2263,1806,
+    1644,1332,3934,1027,2778,3203,2677,2340,3301,1163,
+      59, 169,1685,2390, 212,3084, 788,2152,1303,2440,
+    3082,3697,2942,3556,3654,1622, 145,  61,1032, 256,
+    1120,2369, 644,1437, 688,2752,2006, 676,2849,1954,
+    2606, 904,2108,1195,1054,1069,3021,3020, 578,3286,
+    1905,1121,3102,3182, 541,1286,3255,3254, 418, 140,
+
+    1835,3894,2113
 }
 
+goodstarsVoyagerUranus=set(range(4000))
 #Stars which are visible but shouldn't be used (for instance too close to other stars)
 # For instance -- if two stars are within about 10 pixels of each other, they will inevitably
 # be in each other's boxes. If one is much brighter than the other, the dimmer star will still
@@ -115,8 +142,12 @@ goodstarsVoyagerUranus={
 # brighter one (with the lower index) in the list above, and the dimmer one in the list below
 # so that we know that it was excluded on purpose, rather than neglected.
 badstarsVoyagerUranus={
-    729,313,315,1162,1298,965,20,870,2238
+    729, 313, 315,1162,1298, 965,  20, 870,2238,4642,
+   4914,4809,1575,1598,1331,3879,1762
 }
+
+# In case there is any intersection, subtract it out.
+goodstarsVoyagerUranus-=badstarsVoyagerUranus
 
 goodstarsVoyagerNeptune=goodstarsVoyagerUranus|{
    2105,2021,1826,2913,2488, 157, 914,1115,1807,2841,
@@ -145,11 +176,72 @@ goodstarsVoyagerNeptune=goodstarsVoyagerUranus|{
    3519,3883,3344,3208,3380,1851,3421,3660,3988,3833,
    3449,3931,3562,3700,3378,3207,3162,3417,3559,3013,
    3487,3241,3048,3932,2466,3012,3608,3239,3785,3452,
+   1182, 947, 232,3405,2148,2650,1540,3046,2940,1177,
+   2311,1503,1559, 228,2875,3874,2359,1217, 705, 123,
+    921,1448,1558,1557,  14, 173,1175,1699,3042,2648,
+   1201,2480,2098,2384,1640,2078,1526,3135, 787,1245,
+   2035,2180,1111, 342,1079,2805, 720, 162,1920, 623,
+   2059, 463, 329,2479,1078, 715,1215, 592, 537,2355,
+
+   1354, 484, 547,1522,2540,2014,2937,2619,1942, 251,
+    255,1539,2462,1592,1036, 242, 869,1173, 608,1048,
+   3041,3153,1264,1401,2095,3198,  62,  95, 820,2799,
+   1778,1244,2406,  21, 437, 781,1123,1776,3473,1435,
+    101, 270, 457,2353, 166,1818, 932,1037,3510, 897,
+    878,1171,1137,2144,2900,2435, 857, 196, 413,2478,
+   2590, 955,1657,1174, 719,1917,2700,2354,1523, 281,
+    810, 502,1271,2175,3292, 632,3149, 419, 502, 962,
+   2699,2055,2538, 529,2092,2644,2966,3072,3363,2460,
+   2208,1918,2351, 664,1188, 184,2207, 201,1933,2588,
+
+   1722,1779,1228,2383,1228,1779,1722,1342,2225,2477,
+    325, 876,1138,2010, 273,2698,1044,3902,2033,1887,
+    206,2013,2457,2229, 176,2842,3611,3168,3051,2290,
+   3127,3169,  30,1729, 796,1971,  43,3420,3563,3878,
+   2211,2627,1900,1926,3829, 344, 803,2493,1116,1361,
+   3307,2365,3885,1881,1208,1405, 310,2973, 841, 638,
+    770,2833,3240,1247,3985,3740, 593,2496, 512,3213,
+   3345,3458,3525,3705,1629, 903, 144,1283, 881,3053,
+   2952,2295,2980, 641, 266,1952,2601, 388,2916,1953,
+   2600, 499,2392, 523,2780,2598, 655, 465,3407,2830,
+
+   1805,1098, 643, 776,2528,3573,2470,3616, 143,1103,
+   3023, 572, 577,2956,1364,2683,2889,3215,1750,1235,
+    131,1828, 610,2291,2447,1856,3748,2241,2246,3100,
+   1186,2926,3577,3535,3529,3944,2259,2845,2781,2617,
+   2617,3154,2735,2934,1842,2459, 580, 670,1445,1698,
+   2016,3401,1723,2408, 421,1338,2417,3753,2196,1581,
+    220,1834,1146, 432,2991,2326,3754, 906, 961,1548,
+    837,3798,2564,2042,2218, 386, 226, 661,1147,1906,
+   3389,3355,2761, 754, 560,2758, 489, 510,1982,1735,
+   1318,1838, 750,2402,1633,1058,1714, 227, 516,1477,
+
+   1172, 237,3195,3111,1960,2256, 175, 357,1270, 503,
+   3973,2862,3323,1983,3263, 799, 278,2964,3588,  44,
+    886,2228, 742, 269, 565,   1, 790, 799, 159,3468,
+    980,2725,3751,3021,3020,2396,2954,2469,3997,3347,
+   3574,2581,3134,2920,3460,3792,3055,3056,3057,3704,
+   3947,2983,1827,3382,3054,3172,3843,3016,3942,3787,
+   3375,3658, 524, 707,2575,3277,3206,2622,2545,3297,
+   2831,3008,3273, 318,2938,3112,3151,3813,3443,3439,
+   2898,2696,2763,2090,2426, 752,1588,3354,3140,1322,
+   3812, 895,  40, 669,3713,1442, 367,2454,3906,3360,
+
+   2227, 989,3765,1567,2425,2453,2253, 874,2071,1584,
+   2374,2050,1384,1800,2760, 249, 536,1768, 866,   5,
+   2115,2932,2928,1132,1582,1756,1197,2566,3441,2300,
+   1606, 167,3029,3633, 324,  46, 620,2376,3972,3441,
+    103,3756,3859,  15, 808, 692,1493,1915,3107,3359,
+    1427,3068,1913,942,2927,751,1170,
 
 }
 
+goodstarsVoyagerNeptune=set(range(9000))
+
 badstarsVoyagerNeptune=badstarsVoyagerUranus|{
-   1331,1598,1603,2492, 997,1031,3879,3933,1765,3276
+   1331,1598,1603,2492, 997,1031,3879,3933,1765,3276,
+   1313,1944, 352, 405,1385,2341,3880,2232, 938,1793,
+   3060,3416,2814,2188,3607,3011,3724, 149,
 }
 
 goodstarsVoyagerUranus-=badstarsVoyagerUranus
@@ -172,21 +264,51 @@ projects={
         703:("Titania", 800,  788.9,  788.9,   788.9),
         704:("Oberon",  815,  761.4,  761.4,   761.4),
         705:("Miranda", 250,  240.4,  234.2,   232.9)
-    }),
-    "VoyagerNeptune": (1758, 533, 'data/frames/VoyagerNeptune/frame%04d.png', goodstarsVoyagerNeptune, badstarsVoyagerNeptune,{
+    },None),
+    "VoyagerUranusHD": (5504, 1400, 'data/frames/VoyagerUranusHD/frame%04d.png',goodstarsVoyagerUranus,badstarsVoyagerUranus,{
+        #Spice ID
+        #     Name     Pre-encounter radius (km)
+        #                    a        b        c (polar) from pck00010.tpc
+        799:("Uranus",25550,25559  ,25559  , 24973,0.0,None),
+        701:("Ariel",   665,  581.1,  577.9,   577.7,0.0,799),
+        702:("Umbriel", 555,  584.7,  584.7,   584.7,0.0,799),
+        703:("Titania", 800,  788.9,  788.9,   788.9,0.0,799),
+        704:("Oberon",  815,  761.4,  761.4,   761.4,0.0,799),
+        705:("Miranda", 250,  240.4,  234.2,   232.9,0.0,799)
+    },[41910,42300,42600,44800,45700,47200,47700,48300,51200]), # 6,5,4,alpha,beta,eta,gamma,delta,epsilon
+    "VoyagerNeptune": (1830, 533, 'data/frames/VoyagerNeptune/frame%04d.png', goodstarsVoyagerNeptune, badstarsVoyagerNeptune,{
         #Spice ID
         #     Name     Pre-encounter radius (km)
         #                    a        b        c (polar) from pck00010.tpc
         899:("Neptune",24781,24764  , 24764  ,24341),
         801:("Triton" , 1500, 1352.6,  1352.6,  1352.6),
-        802:("Neried" ,  400,  170  ,   170  ,   170), #Radius from Neptune Travel Guide p146
-        803:("Naiad N6",   0,   29  ,    29  ,    29),
-        804:("Thalassa N5",0,   40  ,    40  ,    40),
-        805:("Despina N3" ,0,   74  ,    74  ,    74),
-        806:("Galatea N4" ,0,   79  ,    79  ,    79),
-        807:("Larissa N2" ,0,  104  ,   104  ,    89),
-        808:("Proteus N1" ,0,  218  ,   208  ,   201),
-    })
+        802:("Nereid" ,  400,  170  ,   170  ,   170), #Radius from Neptune Travel Guide p146
+        803:("Naiad N6",   0,   29  ,    29  ,    29), #N6
+        804:("Thalassa N5",0,   40  ,    40  ,    40), #N5
+        805:("Despina N3" ,0,   74  ,    74  ,    74), #N3
+        806:("Galatea N4" ,0,   79  ,    79  ,    79), #N4
+        807:("Larissa N2" ,0,  104  ,   104  ,    89), #N2
+        808:("Proteus N1" ,0,  218  ,   208  ,   201), #N1
+    },[41000.0,52000.0,61000.0]
+    ),
+    "VoyagerNeptuneB": (
+    2165, 533, 'data/frames/VoyagerNeptuneB/frame%04d.png', goodstarsVoyagerNeptune, badstarsVoyagerNeptune, {
+        # Spice ID
+        #     Name     Pre-encounter radius (km)
+        #                    a        b        c (polar) from pck00010.tpc
+        899: ("Neptune", 24781, 24764, 24764, 24341,0.0,None),
+        801: ["Triton", 1750.0, 1352.6, 1352.6, 1352.6,-185.0,899],
+        802: ("Nereid", 400, 170, 170, 170,0.0,899),  # Radius from Neptune Travel Guide p146
+        803: ("Naiad N6", 0, 29, 29, 29,0.0,899),  # N6
+        804: ("Thalassa N5", 0, 40, 40, 40,0.0,899),  # N5
+        805: ("Despina N3", 0, 74, 74, 74,0.0,None),  # N3
+        806: ("Galatea N4", 0, 79, 79, 79,0.0,None),  # N4
+        807: ("Larissa N2", 0, 104, 104, 89,0.0,None),  # N2
+        808: ("Proteus N1", 0, 218, 208, 201,0.0,None),  # N1
+         10: ("Sun"    , 800000.0, 218, 208, 201,0.0,None),  # N1
+        399: ("Earth",   6371.0, 218, 208, 201,0.0,None),  # N1
+    }, [42800.0, 54400.0, 63400.0,68400.0]
+    )
 }
 
 def cmatrix(loc=None,look=None,sky=None):
@@ -349,7 +471,7 @@ class CameraMount(object):
         self.casename=casename
 
         #initialize by table lookup
-        self.framenum0,self.framenum1,self.framepat,self.goodstars,self.badstars,self.spiceobjs=projects[casename]
+        self.framenum0,self.framenum1,self.framepat,self.goodstars,self.badstars,self.spiceobjs,self.rings=projects[casename]
         self.framenum=self.framenum0
 
         #set up graphics
@@ -376,6 +498,8 @@ class CameraMount(object):
 
         self.fig_controls=plt.figure("Controls")
         self.makebtn(0.55,0.05,'-camlon',self.camlonm)
+        self.makebtn(0.75,0.00,'-var',self.varm)
+        self.makebtn(0.75,0.10,'+var',self.varp)
         self.makebtn(0.80,0.00,'-clock',self.clockm)
         self.makebtn(0.80,0.10,'+clock',self.clockp)
         self.makebtn(0.45,0.05,'+camlon',self.camlonp)
@@ -384,6 +508,7 @@ class CameraMount(object):
         self.makebtn(0.95,0.00,'-angle',self.anglem)
         self.makebtn(0.95,0.10,'+angle',self.anglep)
         self.makebtn(0.90,0.00,'-time',self.timem)
+        self.makebtn(0.90,0.05,'$time',self.timeconf)
         self.makebtn(0.90,0.10,'+time',self.timep)
         self.makebtn(0.85,0.00,'-right',self.rightm)
         self.makebtn(0.85,0.10,'+right',self.rightp)
@@ -400,6 +525,14 @@ class CameraMount(object):
         self.makechk(0.95,0.15,'angle')
         self.makechk(0.80,0.15,'clock')
         self.makechk(0.85,0.15,'right')
+        self.makebtn(0.55,0.35,'-dlon',self.camlonm)
+        self.makebtn(0.75,0.30,'-size',self.varm)
+        self.makebtn(0.75,0.40,'+size',self.varp)
+        self.makebtn(0.80,0.30,'-twist',self.clockm)
+        self.makebtn(0.80,0.40,'+twist',self.clockp)
+        self.makebtn(0.45,0.35,'+dlon',self.camlonp)
+        self.makebtn(0.50,0.30,'-dlat',self.camlatm)
+        self.makebtn(0.50,0.40,'+dlat',self.camlatp)
 
         #Once everything is loaded, do a replot to make sure it's visible
         self.replot()
@@ -416,7 +549,7 @@ class CameraMount(object):
         self.use_par[name]=bx
     def loadstars(self):
         # Load stars
-        LimitMag = 10
+        LimitMag = 6
         self.catalog=load_catalog()
         self.starnames=[]
         ras=[]
@@ -452,9 +585,20 @@ class CameraMount(object):
         self.c=np.cos(q)
         self.s=np.sin(q)
         self.diskplot={}
-        for k,(name,pre,a,b,c) in self.spiceobjs.items():
-            self.diskplot[k],=self.ax.plot(self.c*0,self.s*0,'m-')
+        self.orbplot={}
+        self.ringplot=[]
+        self.nametext={}
+        self.ringcenter=list(self.spiceobjs.keys())[0]
+        for k,(name,pre,a,b,c,dt,parent) in self.spiceobjs.items():
+            color={1:'#804000',2:'#ff0000',3:'#ff8000',4:'#ffff00',5:'#00ff00',6:'#0000ff',7:'#8000ff',8:'#808080',9:'#ffffff'}
+            self.diskplot[k],=self.ax.plot(self.c*0,self.s*0,'-',color=color[k%10])
             self.diskplot[k].set_visible(False)
+            self.orbplot[k], = self.ax.plot(np.zeros(100), np.zeros(100),'-', color=color[k%10])
+            self.orbplot[k].set_visible(False)
+            self.nametext[k]=self.ax.text(0,0,name,color=color[k%10])
+        for ring_r in self.rings:
+            self.ringplot.append(self.ax.plot(self.c*0,self.s*0,'c-')[0])
+            self.ringplot[len(self.ringplot)-1].set_visible(False)
         self.fitplot,  = self.ax.plot(np.zeros((self.star_vec.shape[1],)),
                                       np.zeros((self.star_vec.shape[1],)), 'g*')
         self.fitplot.set_visible(False)
@@ -469,64 +613,93 @@ class CameraMount(object):
                "framenum    integer not null," +
                "timestamp datetime default CURRENT_TIMESTAMP,"
                "nstars          integer,"+
+               "rmsdiff         real," +
                "et              real," +
+               "et_sig          real," +
+               "et_source          real," +
                "lat_c           real," +
-               "lon_c           real," +
-               "angle           real," +
-               "clock           real," +
-               "right_denom     real," +
                "lat_c_sig       real," +
+               "lat_c_source    integer," +
+               "lon_c           real," +
                "lon_c_sig       real," +
+               "lon_c_source    integer," +
+               "angle           real," +
                "angle_sig       real," +
+               "angle_source    integer," +
+               "clock           real," +
                "clock_sig       real," +
+               "clock_source    integer," +
+               "right_denom     real," +
                "right_denom_sig real," +
+               "right_denom_source integer," +
                "primary key (framenum))")
         cur = self.conn.cursor()
         cur.execute(sql)
         self.conn.commit()
     def read_record(self):
+        def fill_in_value(fieldname):
+            # Sources are, in order of decreasing confidence:
+            # 4 - constrained. Certain parameters like right_denom and probably clock are actually constant
+            #     over the video. Also, the intent is that there is eventually a spline model for each of
+            #     the viewpoint variables. "Constrained" means either constant or splined.
+            # 3 - Fit via a least-squares model
+            # 2 - Fit manually
+            # 1 - Interpolated from higher-confidence sources
+            # 0 - unknown source
+            if self.__dict__[fieldname] is None or (fieldname=="et" and self.__dict__[fieldname+"_source"]<2):
+                sql=f"select framenum,{fieldname} from frames where {fieldname}_source>1 order by abs(framenum-?) asc"
+                print(sql)
+                with closing(self.conn.cursor()) as cur:
+                    this_has_row = False
+                    for this_row in cur.execute(sql,(self.framenum,)):
+                        if not this_has_row:
+                            fn0,val0=this_row
+                            this_has_row=True
+                        else:
+                            fn1,val1=this_row
+                            break
+                self.__dict__[fieldname]=linterp(fn0,val0,fn1,val1,self.framenum)
+                self.__dict__[fieldname+"_source"]=1
         has_row=False
         #Check if this frame is already recorded
-        sql=("select framenum,nstars,et,lat_c    ,lon_c    ,angle    ,clock    ,right_denom,"+
-                                       "lat_c_sig,lon_c_sig,angle_sig,clock_sig,right_denom_sig "+
+        sql=("select framenum,nstars,et,et_source,"+
+                                       "lat_c       ,lon_c       ,angle       ,clock       ,right_denom,"+
+                                       "lat_c_sig   ,lon_c_sig   ,angle_sig   ,clock_sig   ,right_denom_sig,"+
+                                       "lat_c_source,lon_c_source,angle_source,clock_source,right_denom_source "+
                                        "from frames order by abs(framenum-?) asc")
         cur = self.conn.cursor()
         old_et = self.et
+        self.lat_c=None
+        self.lon_c=None
+        self.angle=None
+        self.clock=None
+        self.right_denom=None
+        self.et=None
+        has_row=False
         for row in cur.execute(sql, (self.framenum,)):
+            has_row=True
             if row[0]==self.framenum:
-                (self.nstars, self.et,
-                 self.lat_c    ,self.lon_c    ,self.angle,    self.clock    ,self.right_denom,
-                 self.lat_c_sig,self.lon_c_sig,self.angle_sig,self.clock_sig,self.right_denom_sig)=row[1:]
-                has_row = True
-                break
-            elif not has_row:
-                fn0=row[0]
-                lat_c0       = row[3]
-                lon_c0       = row[4]
-                angle0       = row[5]
-                clock0       = row[6]
-                right0       = row[7]
-                has_row=True
-            else:
-                fn1          = row[0]
-                lat_c1       = row[3]
-                lon_c1       = row[4]
-                angle1       = row[5]
-                clock1       = row[6]
-                right1       = row[7]
-                self.lat_c       = linterp(fn0,lat_c0,fn1,lat_c1,self.framenum)
-                self.lon_c       = linterp(fn0,lon_c0,fn1,lon_c1,self.framenum)
-                self.angle       = linterp(fn0,angle0,fn1,angle1,self.framenum)
-                self.clock       = linterp(fn0,clock0,fn1,clock1,self.framenum)
-                self.right_denom = linterp(fn0,right0,fn1,right1,self.framenum)
-                self.lat_c_sig=float('inf')
-                self.lon_c_sig=float('inf')
-                self.angle_sig=float('inf')
-                self.clock_sig=float('inf')
-                self.right_denom_sig=float('inf')
-                self.nstars=None
-                break
-        if not has_row:
+                (self.nstars, self.et,self.et_source,
+                 self.lat_c       ,self.lon_c       ,self.angle       ,self.clock       ,self.right_denom       ,
+                 self.lat_c_sig   ,self.lon_c_sig   ,self.angle_sig   ,self.clock_sig   ,self.right_denom_sig   ,
+                 self.lat_c_source,self.lon_c_source,self.angle_source,self.clock_source,self.right_denom_source,)=row[1:]
+            break
+        if has_row:
+            #There was at least one row, so we can interpolate
+            fill_in_value("lat_c")
+            fill_in_value("lon_c")
+            fill_in_value("angle")
+            fill_in_value("clock")
+            fill_in_value("right_denom")
+            fill_in_value("et")
+            self.lat_c_sig = float('inf')
+            self.lon_c_sig = float('inf')
+            self.angle_sig = float('inf')
+            self.clock_sig = float('inf')
+            self.right_denom_sig = float('inf')
+            self.nstars = None
+        else:
+            # No rows at all -- use initial conditions
             #initial conditions valid for frame 675
             if False:
                 self.lat_c = 25.186          #Spherical coordinate latitude of camera position relative to its look point, in degrees
@@ -544,20 +717,22 @@ class CameraMount(object):
             self.clock_sig = float('inf')
             self.right_denom_sig = float('inf')
             self.nstars=None
-        if self.et is None:
-            self.et=old_et
-        if self.et is None:
-            self.et=str2et("1989-08-25 04:00:00 UTC")-11*3600-20*60
+            if self.et is None:
+                self.et=old_et
+            if self.et is None:
+                self.et=str2et("1986-01-25 04:00:00 UTC")-11*3600-20*60
     def write(self):
-        sql=("insert or replace into frames (framenum,nstars,rmsdiff,et,"+
+        sql=("insert or replace into frames (framenum,nstars,rmsdiff,et,et_source,"+
              "lat_c    ,lon_c    ,angle    ,clock    ,right_denom,   "+
-             "lat_c_sig,lon_c_sig,angle_sig,clock_sig,right_denom_sig) "+
-             "values (?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+             "lat_c_sig,lon_c_sig,angle_sig,clock_sig,right_denom_sig,"
+             "lat_c_source,lon_c_source,angle_source,clock_source,right_denom_source) "+
+             "values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
         cur = self.conn.cursor()
         cur.execute(sql, (self.framenum,
                           self.nstars,
                           self.rmsdiff,
                           self.et,
+                          self.et_source,
                           self.lat_c,
                           self.lon_c,
                           self.angle,
@@ -568,6 +743,11 @@ class CameraMount(object):
                           self.angle_sig,
                           self.clock_sig,
                           self.right_denom_sig,
+                          self.lat_c_source,
+                          self.lon_c_source,
+                          self.angle_source,
+                          self.clock_source,
+                          self.right_denom_source,
                           ))
         self.conn.commit()
     def project_stuff(self):
@@ -598,8 +778,9 @@ class CameraMount(object):
         self.step_size/=10
     def plotspice(self):
         print(f"Voyager 2 in kernel {which_kernel('SPK',-32,self.et)}")
-        for i_spice,(name,r,a,b,c) in self.spiceobjs.items():
+        for i_spice,(name,r,a,b,c,dt,parent) in self.spiceobjs.items():
             try:
+                rofs=dt*spkezr(str(i_spice),self.et,"ECLIPB1950","NONE","899")[0][3:].reshape(-1,1)
                 bodyframe=f"IAU_{name.upper()}"
                 #Vector labels have two letters:
                 # * First is center, one of:
@@ -610,7 +791,12 @@ class CameraMount(object):
                 #    - i: Global inertial frame (Ecliptic B1950)
                 # Observe the target natural spice object from Voyager
                 # at the given time, in the body's own body-fixed frame
-                xbody_vb,lt=spkezr(str(i_spice),self.et,bodyframe,"LT+S","-32")
+                try:
+                    xbody_vb,lt=spkezr(str(i_spice),self.et,bodyframe,"NONE","-32")
+                except SpiceFRAMEDATANOTFOUND:
+                    # Frame not found -- no frame is included for Nereid
+                    bodyframe="ECLIPB1950"
+                    xbody_vb,lt=spkezr(str(i_spice),self.et,bodyframe,"NONE","-32")
                 # position and velocity of Voyager relative to body is
                 # reverse of position of body relative to Voyager. Likewise
                 # for velocity.
@@ -621,17 +807,17 @@ class CameraMount(object):
                     a,b,c=r,r,r
                 if a>0:
                     ell_bb=edlimb(a,b,c,rvoy_bb)
-                    rvoy_bb=rvoy_bb.reshape(-1,1)
                     # limb points in body centered body frame
                     rlimb_bb=self.c*ell_bb.semi_major.reshape(-1,1)+self.s*ell_bb.semi_minor.reshape(-1,1)+ell_bb.center.reshape(-1,1)
                 else:
                     # If body size is zero, then put all the limb points at the center
                     rlimb_bb=np.zeros((3,len(self.c)))
+                rvoy_bb = rvoy_bb.reshape(-1, 1)
                 # limb points in Voyager-centered body frame
                 rlimb_vb=rlimb_bb-rvoy_bb
                 M_ib=pxform(bodyframe,"ECLIPB1950",self.et)
                 # limb points in Voyager-centered inertial frame
-                rlimb_vi=M_ib @ rlimb_vb
+                rlimb_vi=M_ib @ rlimb_vb+rofs
                 # Stack up into homogeneous vectors
                 rlimb_vi=np.vstack((rlimb_vi,np.zeros((1,rlimb_vi.shape[1]))))
                 pixlimb= project(right=4 / self.right_denom, angle=self.angle, width=self.width,
@@ -641,8 +827,47 @@ class CameraMount(object):
                 self.diskplot[i_spice].set_xdata(pixlimb[0,:])
                 self.diskplot[i_spice].set_ydata(pixlimb[1,:])
                 self.diskplot[i_spice].set_visible(True)
+                if parent is not None:
+                    et_orbit=(np.arange(100)-50)*60+self.et
+                    v_orbit=np.ones((4,100))
+                    rmoon_vi=spkezr(str(i_spice),self.et,"ECLIPB1950","NONE","-32")[0][0:3].reshape(-1,1)
+                    for i_et,this_et in enumerate(et_orbit):
+                        v_orbit[:3,i_et]=spkezr(str(i_spice),this_et,"ECLIPB1950","NONE",str(parent))[0][0:3]
+                    v_orbit[0:3,:]-=v_orbit[0:3,None,50]
+                    v_orbit[0:3,:]+=rmoon_vi
+                    pixorbit=project(right=4 / self.right_denom, angle=self.angle, width=self.width,
+                                 height=self.height, target_c=self.C @ v_orbit)
+                    self.orbplot[i_spice].set_xdata(pixorbit[0,:])
+                    self.orbplot[i_spice].set_ydata(pixorbit[1,:])
+                    self.orbplot[i_spice].set_visible(True)
+                    self.nametext[i_spice].set_x(pixorbit[0,50])
+                    self.nametext[i_spice].set_y(pixorbit[1,50])
             except Exception:
+                import traceback
+                traceback.print_exc()
                 print(f"{i_spice} not in kernels")
+        for i_ring,ring_r in enumerate(self.rings):
+            name="Uranus"
+            i_spice=self.ringcenter
+            bodyframe = f"IAU_{name.upper()}"
+            xbody_vb, lt = spkezr(str(i_spice), self.et, bodyframe, "NONE", "-32")
+            xvoy_bb = -xbody_vb
+            rvoy_bb = xvoy_bb[:3]
+            # ring points in body centered body frame
+            rring_bb = self.c*np.array([[ring_r],[0.0],[0.0]]) + self.s*np.array([[0.0],[ring_r],[0]])
+            rvoy_bb = rvoy_bb.reshape(-1, 1)
+            # ring points in Voyager-centered body frame
+            rring_vb = rring_bb - rvoy_bb
+            M_ib = pxform(bodyframe, "ECLIPB1950", self.et)
+            # ring points in Voyager-centered inertial frame
+            rring_vi = M_ib @ rring_vb
+            # Stack up into homogeneous vectors
+            rring_vi = np.vstack((rring_vi, np.zeros((1, rring_vi.shape[1]))))
+            pixring = project(right=4 / self.right_denom, angle=self.angle, width=self.width,
+                              height=self.height, target_c=self.C @ rring_vi)
+            self.ringplot[i_ring].set_xdata(pixring[0, :])
+            self.ringplot[i_ring].set_ydata(pixring[1, :])
+            self.ringplot[i_ring].set_visible(True)
     def replot(self):
         self.project_stuff()
         for i,n_o in enumerate(self.nameobj):
@@ -662,56 +887,73 @@ class CameraMount(object):
         set_btn("clock",self.clock_sig)
         set_btn("right",self.right_denom_sig)
         self.plotspice()
-        plt.pause(0.001)
+        self.ax.set_xlabel(timout(self.et,"YYYY-MM-DD HR:MN:SC.###::UTC"))
+        try:
+            plt.pause(0.001)
+        except Exception:
+            pass
     def camlonp(self, event):
+        self.lon_c_source=2
         self.lon_c+=self.step_size
         self.replot()
     def camlonm(self, event):
+        self.lon_c_source=2
         self.lon_c-=self.step_size
         self.replot()
     def camlatp(self, event):
+        self.lat_c_source=2
         self.lat_c+=self.step_size
         self.replot()
     def camlatm(self, event):
+        self.lat_c_source=2
         self.lat_c-=self.step_size
         self.replot()
-    def lookxp(self, event):
-        self.look[0]+=self.step_size
-        self.replot()
-    def lookxm(self, event):
-        self.look[0]-=self.step_size
-        self.replot()
-    def lookyp(self, event):
-        self.look[1]+=self.step_size
-        self.replot()
-    def lookym(self, event):
-        self.look[1]-=self.step_size
-        self.replot()
     def anglep(self, event):
+        self.angle_source=2
         self.angle += self.step_size
         self.replot()
     def anglem(self, event):
+        self.angle_source=2
         self.angle -= self.step_size
         self.replot()
     def rightp(self, event):
+        self.right_denom_source=2
         self.right_denom += self.step_size
         self.replot()
     def rightm(self, event):
+        self.right_denom_source=2
         self.right_denom -= self.step_size
         self.replot()
+    def varp(self, event):
+        self.spiceobjs[801][5] += self.step_size
+        print(self.spiceobjs[801])
+        self.replot()
+    def varm(self, event):
+        self.spiceobjs[801][5] -= self.step_size
+        print(self.spiceobjs[801])
+        self.replot()
     def clockp(self, event):
+        self.clock_source=2
         self.clock += self.step_size
         self.replot()
     def clockm(self, event):
+        self.clock_source=2
         self.clock -= self.step_size
         self.replot()
     def timep(self, event):
-        self.et += self.step_size*3600
+        self.et_source=2
+        self.et += self.step_size*60
         self.replot()
     def timem(self, event):
-        self.et -= self.step_size*3600
+        self.et_source=2
+        self.et -= self.step_size*60
         self.replot()
+    def timeconf(self, event):
+        self.et_source=2
+        self.replot()
+        self.write()
     def framem(self, event):
+        self.write()
         self.framenum-=1
         self.read_record()
         self.load_image()
@@ -719,7 +961,8 @@ class CameraMount(object):
             self.fitplot.set_visible(False)
         self.replot()
     def framep(self, event):
-        self.framenum+=1
+        self.write()
+        self.framenum+=5
         self.read_record()
         self.load_image()
         if self.fitplot is not None:
@@ -730,6 +973,8 @@ class CameraMount(object):
         Given the current position as an initial guess, find the optimum
         camera parameters and position to fit the stars.
         """
+        self.ax.set_ylabel("Fitting...")
+        plt.pause(0.001)
         done=False
         #All of the following arrays will be edited down as we edit the data
         #Array of star indices for stars under consideration
@@ -742,7 +987,7 @@ class CameraMount(object):
             goodstar_pix=self.star_pix.copy()
             goodstar_pix[:,np.logical_not(this_goodstars)]=np.array([[float('nan')],[float('nan')]])
             print("Number of good stars on-screen: ",np.sum(np.logical_and(this_goodstars,np.isfinite(goodstar_pix[0,:]))))
-            (findx,findy),(sigx,sigy),rho=find_stars(self.backimg,goodstar_pix,names=self.starnames,ax=None)#self.ax_controls)
+            (findx,findy),(sigx,sigy),rho=find_stars(self.backimg,goodstar_pix,names=self.starnames,ax=None,boxr=10)#self.ax_controls)
             print("Number of good stars found:     ",np.sum(np.isfinite(findx)))
             self.fitplot.set_visible(True)
             self.fitplot.set_xdata(findx)
@@ -780,6 +1025,9 @@ class CameraMount(object):
                 p0[3]=False
                 p0[4]=False
                 print("Few usable stars, only fitting pointing and angle")
+            for v,fieldname in zip(vary,["lat_c_source","lon_c_source","angle_source","clock_source","right_denom_source"]):
+                if v:
+                    self.__dict__[fieldname]=3
             (popt,pcov)=curve_fit(curve_fitsky_interface,fitv,pixdata,p0=p0,vary=vary,sigma=cov,absolute_sigma=True,f_kwargs={'width':self.width,'height':self.height})
             fit_pixdata=curve_fitsky_interface(fitv,*popt,width=self.width,height=self.height)
             fitx=fit_pixdata[:len(fit_pixdata)//2]
@@ -810,12 +1058,14 @@ class CameraMount(object):
             self.replot()
         self.nstars = len(infam)
         self.write()
+        self.ax.set_ylabel("")
+        plt.pause(0.001)
     def autop(self, event):
-        for i in range(60):
+        for i in range(8000):
             self.framep(event)
             self.fit(event)
     def autom(self, event):
-        for i in range(100):
+        for i in range(8000):
             self.framem(event)
             self.fit(event)
 
@@ -823,7 +1073,7 @@ def main():
     boxfig = None
     boxax = None
     boximg = None
-    callback=CameraMount(casename="VoyagerNeptune")
+    callback=CameraMount(casename="VoyagerUranusHD")
 
     plt.show()
 
