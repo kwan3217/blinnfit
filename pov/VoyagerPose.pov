@@ -1,66 +1,92 @@
-#declare NACAngle=0.424;
-#declare CelestialSphereRad=8e5;
-#declare StarRatio=1440*45/NACAngle;
-#declare LimitMag=6.0;
-#declare LimitStars=10000;
-#include "StarsRight.inc"
-#include "SpiceQuat.inc"
-#declare CameraFrame="VG2_ISSNA";
-
+#version 3.7
+global_settings{assumed_gamma 1.0}
+#include "KwanMath.inc"
 #declare RefFrame="ECLIPB1950";
-#declare ET=0;
 #furnsh "data/spice/fk/vg2_v02.tf"
 #furnsh "data/spice/lsk/naif0012.tls"
 #furnsh "data/spice/sclk/vg200045.tsc"
 #furnsh "data/spice/spk/vgr2_nep097.bsp"
-#declare Type1=0;
-#if(Type1)
-  #furnsh "data/spice/ck/vg2_nep_version1_type1_iss_sedr.bc"
-  #declare NWnd=ckcov("data/spice/ck/vg2_nep_version1_type1_iss_sedr.bc",-32100,"INTERVAL",0,"TDB",30000);
-  PrintNumber("NWnd: ",NWnd)
-  /*
-  #local IWnd=0;
-  #while(IWnd<NWnd)
-    #local Timout=timout(ckgetcov(IWnd,0),"YYYY-MM-DDTHR:MN:SC.######Z::UTC");
-    #debug concat(str(IWnd,-5,0)," ",Timout,"\n")
-    #local IWnd=IWnd+1;
-  #end
-  */
-  #declare ET=ckgetcov(19282,0);
-#else
-  #furnsh "data/spice/ck/v2n_slew.bc"
-  #furnsh "data/spice/ck/vgr2_super.bc"
-  #declare ET=-326758504.439144;
-#end
+#furnsh "data/spice/ck/v2n_slew.bc"
+#furnsh "data/spice/ck/vgr2_super.bc"
+#declare ET0=str2et("1989-08-24 16:25:00 UTC");
+#declare ET=ET0+86400*clock;
+PrintNumber("frame_number: ",frame_number)
+PrintNumber("clock: ",clock)
 PrintNumber("ET: ",ET)
-#debug concat(etcal(ET),"\n")
+#debug concat(timout(ET,"YYYY-MM-DD HR:MN:SC.###"),"\n")
 
-#declare ToCameraFrame=pxform("J2000",CameraFrame,ET);
-PrintQuat("ToCameraFrame: ",ToCameraFrame)
+#declare NeptuneVel=<0,0,0>;
+#declare NeptunePos=spkezr("899",ET,RefFrame,"LT+S","-32",NeptuneVel);
+PrintVector("NeptunePos: ",NeptunePos)
+PrintVector("NeptuneVel: ",NeptuneVel)
+#declare SunVel=<0,0,0>;
+#declare SunPos=spkezr("899",ET,RefFrame,"LT+S","-32",SunVel);
+PrintVector("SunPos: ",SunPos)
+PrintVector("SunVel: ",SunVel)
+#declare TritonVel=<0,0,0>;
+#declare TritonPos=spkezr("801",ET,RefFrame,"LT+S","-32",TritonVel);
+PrintVector("TritonPos: ",TritonPos)
+PrintVector("TritonVel: ",TritonVel)
 
-#declare vel=<0,0,0>;
-#declare pos=spkezr("801",ET,"J2000","NONE","-32",vel);
-PrintVector("Pos: ",pos)
-PrintVector("Vel: ",vel)
+#declare Target=vnormalize(TritonPos+z*290);
+PrintVector("Target:     ",Target)
+#declare StageRight=vnormalize(vcross(Target,z));
+PrintVector("StageRight: ",StageRight)
+#declare StageUp=vnormalize(vcross(StageRight,Target));
+PrintVector("StageUp: ",StageUp)
 
-object {
-  Stars
-  QuatTrans(ToCameraFrame,<0,0,0>)
+#include "VoyagerSimple.inc"
+#include "SpiceQuat.inc"
+
+union {
+  union {
+    object {ScanPlatform rotate x*90 rotate z*90}
+    cylinder {0,x* 36,1 pigment{color rgb x} finish {ambient 0.5}}
+    cylinder {0,y* 36,1 pigment{color rgb y} finish {ambient 0.5}}
+    cylinder {0,z*144,1 pigment{color rgb z} finish {ambient 0.5}}
+    QuatTrans(pxform("VG2_ISSNA","VG2_SC_BUS",ET),ScanPivot)
+  }
+  union {
+    cylinder {0,x* 36,1 pigment{color <1,1,1>} finish {ambient 0.5}}
+    sphere   {  x* 36,3 pigment{color rgb x  } finish {ambient 0.5}}
+    cylinder {0,y* 36,1 pigment{color <1,1,1>} finish {ambient 0.5}}
+    sphere   {  y* 36,3 pigment{color rgb y  } finish {ambient 0.5}}
+    cylinder {0,z* 36,1 pigment{color <1,1,1>} finish {ambient 0.5}}
+    sphere   {  z* 36,3 pigment{color rgb z  } finish {ambient 0.5}}
+    QuatTrans(pxform("VG2_AZ_EL","VG2_SC_BUS",ET),ScanPivot)
+  }
+  object {VoyagerBody}
+  scale 0.0254
+  QuatTrans(pxform("VG2_SC_BUS",RefFrame,ET),Target*20+StageRight*5+StageUp*2)
+}
+
+
+light_source {
+  -vnormalize(NeptunePos)*1000
+  color rgb <1,1,1>
 }
 
 sphere {
-  pos,1352.6
-  QuatTrans(ToCameraFrame,<0,0,0>)
-  pigment {color rgb <1,1,1>}
-  finish {ambient 1}
+  NeptunePos,25000
+  pigment {color rgb <0,0,1>}
 }
+
+sphere {
+  TritonPos,1250
+  pigment {color rgb <1,0,1>}
+}
+
 
 camera {
   up y
-  right -x
-  sky y
+  right -x*4/3
+  sky z
   location <0,0,0>
-  look_at z
-  angle NACAngle
+  look_at Target
+  angle 48.5
 }
 
+PrintNumber("frame_number: ",frame_number)
+PrintNumber("clock: ",clock)
+PrintNumber("ET: ",ET)
+#debug concat(timout(ET,"YYYY-MM-DD HR:MN:SC.###"),"\n")

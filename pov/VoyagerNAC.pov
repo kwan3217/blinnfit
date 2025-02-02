@@ -1,44 +1,65 @@
+#declare NACAngle=0.424;
 #declare CelestialSphereRad=8e5;
-//#declare StarRatio=1440*45/CamAngle;
+#declare StarRatio=1440*45/NACAngle;
 #declare LimitMag=6.0;
-#declare LimitStars=4000;
-//#declare ConstellSelect="Sgr";
+#declare LimitStars=10000;
 #include "StarsRight.inc"
 #include "SpiceQuat.inc"
+#declare CameraFrame="VG2_ISSNA";
 
 #declare RefFrame="ECLIPB1950";
 #declare ET=0;
+#furnsh "data/spice/fk/vg2_v02.tf"
+#furnsh "data/spice/lsk/naif0012.tls"
+#furnsh "data/spice/sclk/vg200045.tsc"
+#furnsh "data/spice/spk/vgr2_nep097.bsp"
+#declare Type1=0;
+#if(Type1)
+  #furnsh "data/spice/ck/vg2_nep_version1_type1_iss_sedr.bc"
+  #declare NWnd=ckcov("data/spice/ck/vg2_nep_version1_type1_iss_sedr.bc",-32100,"INTERVAL",0,"TDB",30000);
+  PrintNumber("NWnd: ",NWnd)
+  /*
+  #local IWnd=0;
+  #while(IWnd<NWnd)
+    #local Timout=timout(ckgetcov(IWnd,0),"YYYY-MM-DDTHR:MN:SC.######Z::UTC");
+    #debug concat(str(IWnd,-5,0)," ",Timout,"\n")
+    #local IWnd=IWnd+1;
+  #end
+  */
+  #declare ET=ckgetcov(19282,0);
+#else
+  #furnsh "data/spice/ck/v2n_slew.bc"
+  #furnsh "data/spice/ck/vgr2_super.bc"
+  #declare ET=-326758504.439144;
+#end
+PrintNumber("ET: ",ET)
+#debug concat(etcal(ET),"\n")
 
-//From VoyagerNeptuneB, frame 2000
-#declare CamLat=-8.2484919199613;
-#declare CamLon=290.743486161355;
-#declare CamAngle=47.9465502489589;
-#declare CamTwist=-0.00687845413119703;
-#declare RightDenom=2.91142742556547;
-#declare MasterSky=z;
-
-
-camera {
-  #declare LookAt=LLR2XYZ(radians(CamLat),radians(CamLon),1);
-  PrintVector("LookAt: ",LookAt)
-  up y
-  right -x*4/RightDenom
-  #declare SSky=vnormalize(vcross(LookAt,MasterSky));
-  #declare CSky=vnormalize(vcross(SSky,LookAt));
-  sky cos(radians(CamTwist))*CSky+sin(radians(CamTwist))*SSky
-  angle CamAngle
-  location <0,0,0>
-  look_at LookAt
-}
-
+#declare ToCameraFrame=pxform("J2000",CameraFrame,ET);
+PrintQuat("ToCameraFrame: ",ToCameraFrame)
 object {
   Stars
-  QuatTrans(pxform("J2000",RefFrame,ET),<0,0,0>)
+  QuatTrans(ToCameraFrame,<0,0,0>)
 }
 
-#declare
+#declare vel=<0,0,0>;
+#declare pos=spkezr("801",ET,"J2000","NONE","-32",vel);
+PrintVector("Pos: ",pos)
+PrintVector("Vel: ",vel)
 
-object {
-  Voyager
+sphere {
+  pos,1352.6
+  QuatTrans(ToCameraFrame,<0,0,0>)
+  pigment {color rgb <1,1,1>}
+  finish {ambient 1}
+}
+
+camera {
+  up y
+  right -x
+  sky y
+  location <0,0,0>
+  look_at z
+  angle NACAngle
 }
 

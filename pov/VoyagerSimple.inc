@@ -393,7 +393,7 @@
   object {RTGMount}
   object {RTGs}
   object {MagBoom}
-//  object {HGADish}
+  object {HGADish}
   object {HGASupport}
   object {HGAFeed}
   object {PWA}

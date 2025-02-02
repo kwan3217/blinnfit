@@ -7,3 +7,4 @@ venv/
 
 #Stars cache
 StarsRightCache.inc
+*.egg-info/
