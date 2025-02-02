@@ -3,9 +3,13 @@ Describe purpose of this script here
 
 Created: 1/31/25
 """
+use_all_stars=True
 
 
-goodstarsSuperTraj:set[int]={
+if use_all_stars:
+    goodstarsSuperTraj=set(range(4000))
+else:
+    goodstarsSuperTraj:set[int]={
            1553,1097, 191, 765, 613, 289, 456, 472, 968,1000,
            1292,1443, 411,1400,1243, 979, 801,1013,1492, 791,
             741,1149,1020,1496,1399, 724,1569,1148,1108, 467,
@@ -42,7 +46,6 @@ goodstarsSuperTraj:set[int]={
            1184, 677, 805, 953, 306, 659, 843,1317, 106, 143,
             714, 840, 328,1001,1214,1495,1260,1614,1242,1173}
 
-use_all_stars=True
 if use_all_stars:
     goodstarsVoyagerUranus = set(range(4000))
 else:

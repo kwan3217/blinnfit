@@ -12,9 +12,8 @@ from kwanmath.gaussian import correlation_matrix, infamily
 from kwanmath.geodesy import llr2xyz
 from kwanmath.optimize import curve_fit, bounded, positive, rbounded
 
-from blinnfit import main
-from blinnfit.camera import cmatrix, project, make_sky
-from blinnfit.videos import projects
+from starfit.camera import cmatrix, project, make_sky
+from starfit.videos import projects, ProjectBody
 from bsc import load_catalog, GetMag, GetDec, GetRA, GetName
 
 from kwanmath.interp import linterp
@@ -77,13 +76,19 @@ def curve_fitsky_interface(starvec,lat_c,lon_c,angle,clock,right_denom,*,width,h
 
 
 class CameraMount(object):
-    def __init__(self,casename):
+    def __init__(self,*,casename:int,initframe:int):
         #initialize from parameters
         self.casename=casename
+        self.initframe=initframe
 
         #initialize by table lookup
-        self.framenum0,self.framenum1,self.framepat,self.goodstars,self.badstars,self.spiceobjs,self.rings= projects[casename]
-        self.framenum=self.framenum0
+        self.project=projects[self.casename]
+        self.framepat:str=self.project.framepat
+        self.goodstars:set[int]=self.project.goodstars
+        self.badstars:set[int]=self.project.badstars
+        self.spiceobjs:dict[int,ProjectBody]=self.project.bodies
+        self.rings:dict[float]=self.project.rings
+        self.framenum:int=self.initframe
 
         #set up graphics
         self.fig = plt.figure("Main fitting")
@@ -92,7 +97,7 @@ class CameraMount(object):
         #initialize by reading and calculation
         furnsh("data/spice/vgr2.tm")
         self.et=None
-        self.open_frame_index(casename)
+        self.open_frame_index()
         self.read_record()
         self.figimg=None
         self.load_image()
@@ -107,27 +112,29 @@ class CameraMount(object):
         self.axs=[]
         self.btns=[]
 
+        # Function callbacks should have BTNxxx for buttons, CHKxxx fot checkboxes,
+        # like from my old VB5 days. Then minimize the amount of code in the callbacks.
         self.fig_controls=plt.figure("Controls")
-        self.makebtn(0.55,0.05,'-camlon',self.camlonm)
-        self.makebtn(0.75,0.00,'-var',self.varm)
-        self.makebtn(0.75,0.10,'+var',self.varp)
-        self.makebtn(0.80,0.00,'-clock',self.clockm)
-        self.makebtn(0.80,0.10,'+clock',self.clockp)
-        self.makebtn(0.45,0.05,'+camlon',self.camlonp)
-        self.makebtn(0.50,0.00,'-camlat',self.camlatm)
-        self.makebtn(0.50,0.10,'+camlat',self.camlatp)
-        self.makebtn(0.95,0.00,'-angle',self.anglem)
-        self.makebtn(0.95,0.10,'+angle',self.anglep)
-        self.makebtn(0.90,0.00,'-time',self.timem)
-        self.makebtn(0.90,0.05,'$time',self.timeconf)
-        self.makebtn(0.90,0.10,'+time',self.timep)
-        self.makebtn(0.85,0.00,'-right',self.rightm)
-        self.makebtn(0.85,0.10,'+right',self.rightp)
-        self.makebtn(0.00,0.00,'/step',self.sm)
-        self.makebtn(0.10,0.00,'*step',self.big)
-        self.makebtn(0.00,0.05,'<frame',self.framem)
-        self.makebtn(0.10,0.05,'>frame',self.framep)
-        self.makebtn(0.05,0.00,'fit',self.fit)
+        self.makebtn(0.55, 0.05,'-camlon', self.BTNcamlonm)
+        self.makebtn(0.75, 0.00,'-var', self.BTNvarm)
+        self.makebtn(0.75, 0.10,'+var', self.BTNvarp)
+        self.makebtn(0.80, 0.00,'-clock', self.BTNclockm)
+        self.makebtn(0.80, 0.10,'+clock', self.BTNclockp)
+        self.makebtn(0.45, 0.05,'+camlon', self.BTNcamlonp)
+        self.makebtn(0.50, 0.00,'-camlat', self.BTNcamlatm)
+        self.makebtn(0.50, 0.10,'+camlat', self.BTNcamlatp)
+        self.makebtn(0.95, 0.00,'-angle', self.BTNanglem)
+        self.makebtn(0.95, 0.10,'+angle', self.BTNanglep)
+        self.makebtn(0.90, 0.00,'-time', self.BTNtimem)
+        self.makebtn(0.90, 0.05,'$time', self.BTNtimeconf)
+        self.makebtn(0.90, 0.10,'+time', self.BTNtimep)
+        self.makebtn(0.85, 0.00,'-right', self.BTNrightm)
+        self.makebtn(0.85, 0.10,'+right', self.BTNrightp)
+        self.makebtn(0.00, 0.00,'/step', self.BTNsm)
+        self.makebtn(0.10, 0.00,'*step', self.BTNbig)
+        self.makebtn(0.00, 0.05,'<frame', self.BTNframem)
+        self.makebtn(0.10, 0.05,'>frame', self.BTNframep)
+        self.makebtn(0.05, 0.00,'fit', self.BTNfit)
         self.makebtn(0.00,0.10,'<auto',self.autom)
         self.makebtn(0.10,0.10,'auto>',self.autop)
         self.use_par={}
@@ -136,15 +143,15 @@ class CameraMount(object):
         self.makechk(0.95,0.15,'angle')
         self.makechk(0.80,0.15,'clock')
         self.makechk(0.85,0.15,'right')
-        self.makebtn(0.55,0.35,'-dlon',self.camlonm)
-        self.makebtn(0.75,0.30,'-size',self.varm)
-        self.makebtn(0.75,0.40,'+size',self.varp)
-        self.makebtn(0.80,0.30,'-twist',self.clockm)
-        self.makebtn(0.80,0.40,'+twist',self.clockp)
-        self.makebtn(0.45,0.35,'+dlon',self.camlonp)
-        self.makebtn(0.50,0.30,'-dlat',self.camlatm)
-        self.makebtn(0.50,0.40,'+dlat',self.camlatp)
-
+        self.makebtn(0.55, 0.35,'-dlon', self.BTNcamlonm)
+        self.makebtn(0.75, 0.30,'-size', self.BTNvarm)
+        self.makebtn(0.75, 0.40,'+size', self.BTNvarp)
+        self.makebtn(0.80, 0.30,'-twist', self.BTNclockm)
+        self.makebtn(0.80, 0.40,'+twist', self.BTNclockp)
+        self.makebtn(0.45, 0.35,'+dlon', self.BTNcamlonp)
+        self.makebtn(0.50, 0.30,'-dlat', self.BTNcamlatm)
+        self.makebtn(0.50, 0.40,'+dlat', self.BTNcamlatp)
+        self.makebtn(0.00, 0.75,'refit', self.BTNrefit)
         #Once everything is loaded, do a replot to make sure it's visible
         self.replot()
     def makebtn(self,x,y,name,f):
@@ -200,25 +207,25 @@ class CameraMount(object):
         self.ringplot=[]
         self.nametext={}
         self.ringcenter=list(self.spiceobjs.keys())[0]
-        for k,(name,pre,a,b,c,dt,parent) in self.spiceobjs.items():
-            color={1:'#804000',2:'#ff0000',3:'#ff8000',4:'#ffff00',5:'#00ff00',6:'#0000ff',7:'#8000ff',8:'#808080',9:'#ffffff'}
+        for k,body in self.spiceobjs.items():
+            color={0:'#404040',1:'#804000',2:'#ff0000',3:'#ff8000',4:'#ffff00',5:'#00ff00',6:'#0000ff',7:'#8000ff',8:'#c0c0c0',9:'#ffffff'}
             self.diskplot[k],=self.ax.plot(self.c*0,self.s*0,'-',color=color[k%10])
             self.diskplot[k].set_visible(False)
             self.orbplot[k], = self.ax.plot(np.zeros(100), np.zeros(100),'-', color=color[k%10])
             self.orbplot[k].set_visible(False)
-            self.nametext[k]=self.ax.text(0,0,name,color=color[k%10])
+            self.nametext[k]=self.ax.text(0,0,body.name,color=color[k%10])
         for ring_r in self.rings:
             self.ringplot.append(self.ax.plot(self.c*0,self.s*0,'c-')[0])
             self.ringplot[len(self.ringplot)-1].set_visible(False)
         self.fitplot,  = self.ax.plot(np.zeros((self.star_vec.shape[1],)),
                                       np.zeros((self.star_vec.shape[1],)), 'g*')
         self.fitplot.set_visible(False)
-    def open_frame_index(self,casename):
+    def open_frame_index(self):
         """
         Open an SQLite database and make sure that the appropriate table(s) are present
         in the database
         """
-        dbname=f"data/db/frame_index_{casename}.sqlite"
+        dbname=f"data/db/frame_index_{self.casename}.sqlite"
         self.conn = sqlite3.connect(dbname)
         sql = ("create table if not exists frames (" +
                "framenum    integer not null," +
@@ -383,16 +390,28 @@ class CameraMount(object):
         if self.figimg is not None:
             self.figimg.set_data(self.backimg)
         self.ax.set_title(f"Frame {self.framenum}")
-    def big(self, event):
-        self.step_size*=10
-    def sm(self, event):
-        self.step_size/=10
+    def refit(self):
+        """
+        For all frames which have an automatic fit solution, run the fit solution again
+
+        """
+        # Get a list of all the images to re-fit. These will be those with a finite sigma on lat.
+        sql = "select framenum from frames where lat_c_sig<1;"
+        # frames=cur.execute(sql).
+        # for row in cur.execute(sql):
+    def autofit(self,dframe,limit=8000):
+        for i in range(limit):
+            self.d_frame(dframe)
+            self.fit()
     def plotspice(self):
         print(f"Voyager 2 in kernel {which_kernel('SPK',-32,self.et)}")
-        for i_spice,(name,r,a,b,c,dt,parent) in self.spiceobjs.items():
+        for i_spice,body in self.spiceobjs.items():
             try:
-                rofs=dt*spkezr(str(i_spice),self.et,"ECLIPB1950","NONE","899")[0][3:].reshape(-1,1)
-                bodyframe=f"IAU_{name.upper()}"
+                if body.dt is not None and body.dt>0:
+                    rofs=body.dt*spkezr(str(i_spice),self.et,"ECLIPB1950","NONE",body.parent)[0][3:].reshape(-1,1)
+                else:
+                    rofs=np.zeros((3,1))
+                bodyframe=f"IAU_{body.name.upper()}"
                 #Vector labels have two letters:
                 # * First is center, one of:
                 #    - v: Voyager Spacecraft
@@ -415,7 +434,9 @@ class CameraMount(object):
                 rvoy_bb=xvoy_bb[:3]
                 if True:
                     # Use pre-encounter spherical radius for all ellipsoid radii
-                    a,b,c=r,r,r
+                    a,b,c=body.r,body.r,body.r
+                else:
+                    a,b,c=body.a,body.b,body.c
                 if a>0:
                     ell_bb=edlimb(a,b,c,rvoy_bb)
                     # limb points in body centered body frame
@@ -438,12 +459,12 @@ class CameraMount(object):
                 self.diskplot[i_spice].set_xdata(pixlimb[0,:])
                 self.diskplot[i_spice].set_ydata(pixlimb[1,:])
                 self.diskplot[i_spice].set_visible(True)
-                if parent is not None:
+                if body.parent is not None:
                     et_orbit=(np.arange(100)-50)*60+self.et
                     v_orbit=np.ones((4,100))
                     rmoon_vi=spkezr(str(i_spice),self.et,"ECLIPB1950","NONE","-32")[0][0:3].reshape(-1,1)
                     for i_et,this_et in enumerate(et_orbit):
-                        v_orbit[:3,i_et]=spkezr(str(i_spice),this_et,"ECLIPB1950","NONE",str(parent))[0][0:3]
+                        v_orbit[:3,i_et]=spkezr(str(i_spice),this_et,"ECLIPB1950","NONE",str(body.parent))[0][0:3]
                     v_orbit[0:3,:]-=v_orbit[0:3,None,50]
                     v_orbit[0:3,:]+=rmoon_vi
                     pixorbit= project(right=4 / self.right_denom, angle=self.angle, width=self.width,
@@ -503,83 +524,7 @@ class CameraMount(object):
             plt.pause(0.001)
         except Exception:
             pass
-    def camlonp(self, event):
-        self.lon_c_source=2
-        self.lon_c+=self.step_size
-        self.replot()
-    def camlonm(self, event):
-        self.lon_c_source=2
-        self.lon_c-=self.step_size
-        self.replot()
-    def camlatp(self, event):
-        self.lat_c_source=2
-        self.lat_c+=self.step_size
-        self.replot()
-    def camlatm(self, event):
-        self.lat_c_source=2
-        self.lat_c-=self.step_size
-        self.replot()
-    def anglep(self, event):
-        self.angle_source=2
-        self.angle += self.step_size
-        self.replot()
-    def anglem(self, event):
-        self.angle_source=2
-        self.angle -= self.step_size
-        self.replot()
-    def rightp(self, event):
-        self.right_denom_source=2
-        self.right_denom += self.step_size
-        self.replot()
-    def rightm(self, event):
-        self.right_denom_source=2
-        self.right_denom -= self.step_size
-        self.replot()
-    def varp(self, event):
-        self.spiceobjs[801][5] += self.step_size
-        print(self.spiceobjs[801])
-        self.replot()
-    def varm(self, event):
-        self.spiceobjs[801][5] -= self.step_size
-        print(self.spiceobjs[801])
-        self.replot()
-    def clockp(self, event):
-        self.clock_source=2
-        self.clock += self.step_size
-        self.replot()
-    def clockm(self, event):
-        self.clock_source=2
-        self.clock -= self.step_size
-        self.replot()
-    def timep(self, event):
-        self.et_source=2
-        self.et += self.step_size*60
-        self.replot()
-    def timem(self, event):
-        self.et_source=2
-        self.et -= self.step_size*60
-        self.replot()
-    def timeconf(self, event):
-        self.et_source=2
-        self.replot()
-        self.write()
-    def framem(self, event):
-        self.write()
-        self.framenum-=1
-        self.read_record()
-        self.load_image()
-        if self.fitplot is not None:
-            self.fitplot.set_visible(False)
-        self.replot()
-    def framep(self, event):
-        self.write()
-        self.framenum+=5
-        self.read_record()
-        self.load_image()
-        if self.fitplot is not None:
-            self.fitplot.set_visible(False)
-        self.replot()
-    def fit(self, event):
+    def fit(self):
         """
         Given the current position as an initial guess, find the optimum
         camera parameters and position to fit the stars.
@@ -626,7 +571,7 @@ class CameraMount(object):
             #fiti=np.array(goodstars)[w]
 
             p0 = np.array((self.lat_c                    ,self.lon_c                       ,self.angle                  ,self.clock                      ,self.right_denom))
-            vary=[         bounded(-90.0,90.0,self.lat_c),rbounded(-180.0,180.0,self.lon_c),bounded(0.0,90.0,self.angle),bounded(-180.0,180.0,self.clock),positive()       ]
+            vary=[         bounded(-90.0,90.0,self.lat_c),rbounded(-180.0,180.0,self.lon_c),bounded(0.0,120.0,self.angle),bounded(-180.0,180.0,self.clock),positive()       ]
             if len(findx)<2:
                 p0[2]=False
                 p0[3]=False
@@ -671,13 +616,95 @@ class CameraMount(object):
         self.write()
         self.ax.set_ylabel("")
         plt.pause(0.001)
+    def set_frame(self,i_frame):
+        self.write()
+        self.framenum=i_frame
+        self.read_record()
+        self.load_image()
+        if self.fitplot is not None:
+            self.fitplot.set_visible(False)
+        self.replot()
+    def d_frame(self,d_frame):
+        self.set_frame(self.framenum+d_frame)
+    # Callbacks only below this point. Callbacks should be trivial.
+    # If they are more than about 1 line, or if they are called from
+    # somewhere else, break out the functionality into its own function
+    # and call it from the callback.
+    def BTNbig(self, event):
+        self.step_size*=10
+    def BTNsm(self, event):
+        self.step_size/=10
+    def BTNrefit(self, event):
+        self.refit()
+    def BTNcamlonp(self, event):
+        self.lon_c_source=2
+        self.lon_c+=self.step_size
+        self.replot()
+    def BTNcamlonm(self, event):
+        self.lon_c_source=2
+        self.lon_c-=self.step_size
+        self.replot()
+    def BTNcamlatp(self, event):
+        self.lat_c_source=2
+        self.lat_c+=self.step_size
+        self.replot()
+    def BTNcamlatm(self, event):
+        self.lat_c_source=2
+        self.lat_c-=self.step_size
+        self.replot()
+    def BTNanglep(self, event):
+        self.angle_source=2
+        self.angle += self.step_size
+        self.replot()
+    def BTNanglem(self, event):
+        self.angle_source=2
+        self.angle -= self.step_size
+        self.replot()
+    def BTNrightp(self, event):
+        self.right_denom_source=2
+        self.right_denom += self.step_size
+        self.replot()
+    def BTNrightm(self, event):
+        self.right_denom_source=2
+        self.right_denom -= self.step_size
+        self.replot()
+    def BTNvarp(self, event):
+        self.spiceobjs[801][5] += self.step_size
+        print(self.spiceobjs[801])
+        self.replot()
+    def BTNvarm(self, event):
+        self.spiceobjs[801][5] -= self.step_size
+        print(self.spiceobjs[801])
+        self.replot()
+    def BTNclockp(self, event):
+        self.clock_source=2
+        self.clock += self.step_size
+        self.replot()
+    def BTNclockm(self, event):
+        self.clock_source=2
+        self.clock -= self.step_size
+        self.replot()
+    def BTNtimep(self, event):
+        self.et_source=2
+        self.et += self.step_size*60
+        self.replot()
+    def BTNtimem(self, event):
+        self.et_source=2
+        self.et -= self.step_size*60
+        self.replot()
+    def BTNtimeconf(self, event):
+        self.et_source=2
+        self.replot()
+        self.write()
+    def BTNframem(self, event):
+        self.d_frame(-1)
+    def BTNframep(self, event):
+        self.d_frame(+1)
+    def BTNfit(self, event):
+        self.fit()
     def autop(self, event):
-        for i in range(8000):
-            self.framep(event)
-            self.fit(event)
+        self.autofit(+1)
     def autom(self, event):
-        for i in range(8000):
-            self.framem(event)
-            self.fit(event)
+        self.autofit(-1)
 
 
