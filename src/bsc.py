@@ -2,7 +2,9 @@
 import gzip
 
 import numpy as np
+from kwanmath.geodesy import llr2xyz
 from kwanmath.interp import linterp
+from spiceypy import pxform
 
 
 def GetRA(S):
@@ -10,9 +12,12 @@ def GetRA(S):
     :param N: Star index in brightness order
     :return: Right Ascension in degrees
     """
-    Hours=float(S[76:76+2])
-    Minutes=float(S[78:78+2])
-    Seconds=float(S[80:80+4])
+    # * 76- 77  I2     h         RAh        ?Hours RA, equinox J2000, epoch 2000.0 (1)
+    # * 78- 79  I2     min       RAm        ?Minutes RA, equinox J2000, epoch 2000.0 (1)
+    # * 80- 83  F4.1   s         RAs        ?Seconds RA, equinox J2000, epoch 2000.0 (1)
+    Hours=float(S[76-1:77])
+    Minutes=float(S[78-1:79])
+    Seconds=float(S[80-1:83])
     return (Hours+Minutes/60+Seconds/3600)*15
 
 def GetDec(S):
@@ -20,10 +25,14 @@ def GetDec(S):
     :param N: Star index in brightness order
     :return: Declination in degrees
     """
-    Sign   =    S[84:84+1]
-    Degrees=float(S[85:85+2])
-    Minutes=float(S[87:87+2])
-    Seconds=float(S[89:89+2])
+    # *     84  A1     ---       DE-        ?Sign Dec, equinox J2000, epoch 2000.0 (1)
+    # * 85- 86  I2     deg       DEd        ?Degrees Dec, equinox J2000, epoch 2000.0 (1)
+    # * 87- 88  I2     arcmin    DEm        ?Minutes Dec, equinox J2000, epoch 2000.0 (1)
+    # * 89- 90  I2     arcsec    DEs        ?Seconds Dec, equinox J2000, epoch 2000.0 (1)
+    Sign   =    S[84-1:84]
+    Degrees=float(S[85-1:86])
+    Minutes=float(S[87-1:88])
+    Seconds=float(S[89-1:90])
     return (Degrees+Minutes/60+Seconds/3600)*(-1 if Sign=="-" else 1)
 
 def GetMag(S):
@@ -31,14 +40,18 @@ def GetMag(S):
     :param N: Star index in brightness order
     :return: Magnitude, lower number is brighter
     """
-    return float(S[103:103+5])
+    #*103-107  F5.2   mag       Vmag       ?Visual magnitude (1)
+    return float(S[103-1:107])
 
 def GetName(S):
     """
     :param N: Star index in brightness order
     :return: Bayer designation, Flamsteed designation, or both, followed by HR number
     """
-    return S[5:5+10]+" HR"+S[1:1+4]
+    #   1-  4  I4     ---       HR         [1/9110]+ Harvard Revised Number
+    #                                      = Bright Star Number
+    #   5- 14  A10    ---       Name       Name, generally Bayer and/or Flamsteed name
+    return S[5-1:14]+" HR"+S[1-1:4]
 
 
 def GetSpectralLetter(S):
@@ -46,14 +59,20 @@ def GetSpectralLetter(S):
     :param N: Star index in brightness order
     :return: Spectral class letter, one of OBAFGKM
     """
-    return S[130:130+1]
+    #*128-147  A20    ---       SpType     Spectral type
+    return S[130-1:130]
 
 def GetSpectralSubtype(S):
     """
     :param N: Star index in brightness order
     :return: Spectral subtype from 0 (hottest) to 9 (coolest). 10 would equivalent to 0 of the next cooler class.
     """
-    return float(S[131:131+1])
+    #*128-147  A20    ---       SpType     Spectral type
+    try:
+        return float(S[131-1:131])
+    except ValueError:
+        # Don't try to parse the more complicated spectral types
+        return 5.0
 
 def GetSpectralType(S):
     #Returns number corresponding to spectral type, O=zero, M=6
@@ -84,35 +103,30 @@ Colors=[ #Note that these are symbolic colors, not actual colors from the blackb
     np.array((1   ,0   ,0  )), #M,N
     np.array((0.5 ,0   ,0  ))  #(M10)
 ]
-ColorSat=0.5
-BrightMax=1
-Gamma=0.4
-LimitMag=6
-MaxMag=-1.46
 
-def GetColor(S):
+def GetColor(line:str,*,color_sat:float=0.5,bright_max:float=1.0,gamma:float=0.4,limit_mag:float=6,max_mag:float=-1.46):
     """
     :param N:
     :return: A 3vector for color
     """
-    global LimitMag, BrightMax, Colors, BrightStarCatalog
-    Mag=GetMag(S)
+    Mag=GetMag(line)
     #print("Mag: ",Mag)
-    if(Mag>LimitMag):
+    if(Mag>limit_mag):
         result=np.array((0,0,0)) #Star is black
     else:
-        Bright=linterp(MaxMag(),BrightMax,LimitMag,0,Mag)
-        Type=GetSpectralType(S)
-        Subtype=GetSpectralSubtype(S)
+        Bright=linterp(max_mag,bright_max,limit_mag,0,Mag)
+        Type=GetSpectralType(line)
+        Subtype=GetSpectralSubtype(line)
         #print("Subtype: ",Subtype)
         #print("0 color: ",Colors[Type])
         #print("10 color: ",Colors[Type+1])
-        Color=linterp(0,Colors[Type],10,Colors[Type+1],Subtype)*ColorSat
-        Color=(np.array((1,1,1))*(1-ColorSat)+Color)*Bright
-        result=Color**Gamma
+        Color=linterp(0,Colors[Type],10,Colors[Type+1],Subtype)*color_sat
+        Color=(np.array((1,1,1))*(1-color_sat)+Color)*Bright
+        result=Color**gamma
     return result
 
-def load_catalog():
+
+def load_catalog(*,limit_mag:float=None,count:int=None):
     # Read the compressed catalog
     with gzip.open("data/starcat/catalog.gz","rt") as inf:
         lines=inf.readlines()
@@ -124,8 +138,45 @@ def load_catalog():
     # other valid values but not vmag, we drop them too.
     lines=[line for line in lines if line[104]!=" "]
     # Sort the catalog by brightness
-    lines=list(sorted(lines,key=lambda x:float(x[103-1:107])))
+    lines=list(sorted(lines,key=lambda line:GetMag(line)))
+    # Limit the stars by number
+    if count is not None:
+        lines=lines[:count]
+    if limit_mag is not None:
+        lines=[line for line in lines if GetMag(line)<limit_mag]
     return lines
+
+def parse_stars(lines:list[str],frame:str=None,frame_et:float=0.0):
+    """
+
+    :param lines:
+    :param frame:
+    :return: Tuple:
+      * 2D array, stack of position vectors in the from frame
+      * list of names
+      * list of magnitudes
+      * 2D array, stack of color rgb triplets
+    """
+    v_j=[]  #Vector of stars in the original J2000 frame
+    names=[]
+    mags=[]
+    colors=[]
+    for i_line,line in enumerate(lines):
+        v_j.append(llr2xyz(r=1,lat=GetDec(line),lon=GetRA(line),deg=True))
+        names.append(f"{i_line:4d} {GetName(line)}")
+        mags.append(GetMag(line))
+        colors.append(GetColor(line))
+    v_j=np.hstack(v_j)
+    # Calculate v_w, stars in target world reference frame
+    if frame is None:
+        v_w=v_j
+    else:
+        M_wj=pxform("J2000",frame,frame_et)
+        v_w=M_wj @ v_j
+    names=np.array(names)
+    mags=np.array(mags)
+    colors=np.array(colors).T
+    return v_w,names,mags,colors
 
 """	
 Byte-by-byte Description of file: catalog.dat

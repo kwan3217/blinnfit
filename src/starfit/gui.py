@@ -1,5 +1,7 @@
 from contextlib import closing
+from functools import partial
 
+from scipy.optimize import curve_fit, Bounds
 from spiceypy import furnsh, spkezr, str2et, timout, edlimb, pxform, SpiceFRAMEDATANOTFOUND
 import spiceypy as cspice
 import numpy as np
@@ -10,9 +12,9 @@ import sqlite3
 
 from kwanmath.gaussian import correlation_matrix, infamily
 from kwanmath.geodesy import llr2xyz
-from kwanmath.optimize import curve_fit, bounded, positive, rbounded
 
-from starfit.camera import cmatrix, project, make_sky
+from starfit.camera import cmatrix, project, make_sky, Camera
+from starfit.fit_stars import curve_fitsky_interface
 from starfit.videos import projects, ProjectBody
 from bsc import load_catalog, GetMag, GetDec, GetRA, GetName
 
@@ -25,54 +27,6 @@ cspice.furnsh('data/spice/vgr1.tm')
 cspice.furnsh('data/spice/vgr2.tm')
 cspice.furnsh('data/spice/lsk/naif0012.tls')
 cspice.furnsh('data/spice/spk/de430.bsp')
-
-
-def curve_fitsky_interface(starvec,lat_c,lon_c,angle,clock,right_denom,*,width,height):
-    """
-    Calculate the pixel positions of the given stars, given these camera parameters
-    :param starvec: List of star vectors with homogeneous coordinates of shape (4,M//2)
-    :param camlat: Scalar camera latitude in degrees
-    :param camlon: Scalar camera longitude in degrees
-    :param dist:   Scalar camera distance in AU
-    :param angle:  Scalar camera FOV angle in degrees
-    :param right_denom: Scalar camera aspect ratio constant
-    :param cx:     Scalar image distortion center horizontal coordinate
-    :param cy:     Scalar image distortion center vertical coordinate
-    :param x_sky: x coordinate of unit sky vector in degrees
-    :param ym_sky: modified y coordinate of unit sky vector in degrees
-      So that the curve fitter may freely choose any x_sky,ym_sky pair without the bounds
-      of y dependent on x, we use ym_sky=
-    :return: 1D array of shape M, representing a 2D array of pixel coordinates [x_or_y,star] shape (2,M//2)
-             raveled so as to work with scipy.optimize.curve_fit. This will be all the x coordinates first,
-             then all the y coordinates
-    """
-    # The curve fitter scipy.optimize.curve_fit takes a function to fit f,
-    # independent xdata (can be any object, but f(xdata,*p) must return an
-    # array of shape M), dependent ydata (shape M), and an initial guess at
-    # a set of parameters p0 (shape N). It returns a set of parameters popt
-    # which best fits the data. In our case, the ydata is pixel positions of
-    # the stars, and therefore M is twice the number of stars we are trying
-    # to fit. The p is camera parameters, and therefore by process of elimination
-    # the xdata must be the positions of the stars. In our case, it's easiest to take
-    # the vectors of the stars as inputs, so xdata will be an array of shape
-    # (4,M//2) and we will return a 1D array of raveled x and y pixel coordinates
-    # of each star
-    starvec=starvec.reshape(4,-1)
-    dir = llr2xyz(lat=lat_c, lon=lon_c)
-    sky = make_sky(clock, dir)
-    C = cmatrix(loc=np.zeros((3, 1)), look=dir, sky=sky)
-    Cv = C @ starvec
-    prj = project(right=4 / right_denom, angle=angle, width=width, height=height, target_c=Cv, out_nan=False)
-    if not np.all(np.isfinite(prj)):
-        print("Dir: \n",dir)
-        print("Sky: \n",sky)
-        print("C:   \n",C)
-        print("Cv:  \n",Cv)
-        print("prj: \n",prj)
-        print("Nonfinite: \n",np.where(np.isnan(prj[0,:])))
-        prj = project(right=4 / right_denom, angle=angle, width=width, height=height, target_c=Cv, out_nan=False)
-        raise AssertionError("Not all projected star locations are finite")
-    return prj.ravel()
 
 
 class CameraMount(object):
@@ -116,8 +70,8 @@ class CameraMount(object):
         # like from my old VB5 days. Then minimize the amount of code in the callbacks.
         self.fig_controls=plt.figure("Controls")
         self.makebtn(0.55, 0.05,'-camlon', self.BTNcamlonm)
-        self.makebtn(0.75, 0.00,'-var', self.BTNvarm)
-        self.makebtn(0.75, 0.10,'+var', self.BTNvarp)
+        #self.makebtn(0.75, 0.00,'-var', self.BTNvarm)
+        #self.makebtn(0.75, 0.10,'+var', self.BTNvarp)
         self.makebtn(0.80, 0.00,'-clock', self.BTNclockm)
         self.makebtn(0.80, 0.10,'+clock', self.BTNclockp)
         self.makebtn(0.45, 0.05,'+camlon', self.BTNcamlonp)
@@ -135,8 +89,8 @@ class CameraMount(object):
         self.makebtn(0.00, 0.05,'<frame', self.BTNframem)
         self.makebtn(0.10, 0.05,'>frame', self.BTNframep)
         self.makebtn(0.05, 0.00,'fit', self.BTNfit)
-        self.makebtn(0.00,0.10,'<auto',self.autom)
-        self.makebtn(0.10,0.10,'auto>',self.autop)
+        self.makebtn(0.00, 0.10,'<auto', self.BTNautom)
+        self.makebtn(0.10, 0.10,'auto>', self.BTNautop)
         self.use_par={}
         self.makechk(0.50,0.15,'lat')
         self.makechk(0.45,0.15,'lon')
@@ -167,17 +121,12 @@ class CameraMount(object):
         self.use_par[name]=bx
     def loadstars(self):
         # Load stars
-        LimitMag = 6
-        self.catalog=load_catalog()
+        self.catalog=load_catalog(limit_mag=6,count=4000)
         self.starnames=[]
         ras=[]
         decs=[]
         for i, this_star in enumerate(self.catalog):
-            if i>4000:
-                break
             star = " " + this_star
-            if GetMag(star) > LimitMag:
-                break
             decs.append(GetDec(star))
             ras.append(GetRA(star))
             self.starnames.append(f"{i:4d} "+GetName(star))
@@ -396,9 +345,12 @@ class CameraMount(object):
 
         """
         # Get a list of all the images to re-fit. These will be those with a finite sigma on lat.
-        sql = "select framenum from frames where lat_c_sig<1;"
-        # frames=cur.execute(sql).
-        # for row in cur.execute(sql):
+        sql = "select framenum from frames where lat_c_source<=3;"
+        cur = self.conn.cursor()
+        frames=[x[0] for x in cur.execute(sql).fetchall()]
+        for i_frame in frames:
+            self.set_frame(i_frame)
+            self.fit()
     def autofit(self,dframe,limit=8000):
         for i in range(limit):
             self.d_frame(dframe)
@@ -530,7 +482,7 @@ class CameraMount(object):
         camera parameters and position to fit the stars.
         """
         self.ax.set_ylabel("Fitting...")
-        plt.pause(0.001)
+        plt.pause(0.1)
         done=False
         #All of the following arrays will be edited down as we edit the data
         #Array of star indices for stars under consideration
@@ -569,23 +521,69 @@ class CameraMount(object):
             pixdata=np.vstack((findx,findy)).ravel()
             fitv=self.star_vec[:,w[0]] #If we do fitv[:,w] we get a shape (4,1,nstars) instead of the (4,nstars) we want
             #fiti=np.array(goodstars)[w]
+            cutoff=5
+            fix_right_denom=True
+            mean_right_denom=2.19884598665809 # Average of fit values from all frames where right_denom could be fit
+            if fix_right_denom:
+                cutoff=4
+                self.right_denom=mean_right_denom
+            p0 = np.array((self.lat_c  ,self.lon_c    ,self.angle ,self.clock    ,self.right_denom))
 
-            p0 = np.array((self.lat_c                    ,self.lon_c                       ,self.angle                  ,self.clock                      ,self.right_denom))
-            vary=[         bounded(-90.0,90.0,self.lat_c),rbounded(-180.0,180.0,self.lon_c),bounded(0.0,120.0,self.angle),bounded(-180.0,180.0,self.clock),positive()       ]
+            vary=[         [-90.0,90.0],[-180.0,180.0],[0.0,120.0],[-180.0,180.0],[0.0,np.inf]       ]
+            # We intend to fit all the parameters at first, mark them as such
+            for fieldname in ("lat_c_source","lon_c_source","angle_source","clock_source","right_denom_source"):
+                self.__dict__[fieldname]=3
+            kwargs={"width":self.width,"height":self.height}
+            # Now check if we have enough stars. If not enough, turn off some parameters
             if len(findx)<2:
-                p0[2]=False
-                p0[3]=False
-                p0[4]=False
-                print("Few usable stars, only fitting pointing")
+                cutoff=2
+                kwargs.update({"angle":self.angle,"clock":self.clock,"right_denom":self.right_denom})
+                self.angle_source=1 # interpolated
+                self.clock_source=1
+                self.right_denom_source=1
+                print("Very few usable stars, only fitting pointing")
             elif len(findx)<5:
-                p0[3]=False
-                p0[4]=False
+                cutoff=3
+                kwargs.update({"clock":self.clock,"right_denom":self.right_denom})
+                self.clock_source=1
+                self.right_denom_source=1
                 print("Few usable stars, only fitting pointing and angle")
-            for v,fieldname in zip(vary,["lat_c_source","lon_c_source","angle_source","clock_source","right_denom_source"]):
-                if v:
-                    self.__dict__[fieldname]=3
-            (popt,pcov)=curve_fit(curve_fitsky_interface,fitv,pixdata,p0=p0,vary=vary,sigma=cov,absolute_sigma=True,f_kwargs={'width':self.width,'height':self.height})
-            fit_pixdata=curve_fitsky_interface(fitv,*popt,width=self.width,height=self.height)
+            if fix_right_denom:
+                # If right_denom is fixed, mark it as constrained despite above
+                kwargs["right_denom"]=mean_right_denom
+                self.right_denom_source=4
+            # Now handle longitude and clock. They wrap, so we hand the estimator
+            # a zero guess and give the fit interface an offset to add to get the
+            # actual longitude and clock.
+            # Currently, lon_c is never fixed
+            kwargs["lon0"]=self.lon_c
+            p0[1]=0.0
+            if cutoff>=3:
+                # If clock is fixed, then set clock0 to 0 so
+                # the fit routine's attempt to compensate for wrap
+                # turns into a no-op, and it uses the passed clock
+                # as the actual clock
+                kwargs["clock0"]=0.0
+            else:
+                kwargs["clock0"] = self.clock
+                p0[3]=0.0
+            # Package up the bounds
+            lb=[a for a,b in vary]
+            ub=[b for a,b in vary]
+            bounds=Bounds(lb=lb[:cutoff],ub=ub[:cutoff])
+            # Set up a partial to handle everything my old wrapper did
+            ff=partial(curve_fitsky_interface, **kwargs)
+            popt,pcov,*_=curve_fit(ff,fitv,pixdata,p0=p0[:cutoff],bounds=bounds,sigma=cov,absolute_sigma=True)
+            fit_pixdata=ff(fitv,*popt)
+            # Extend popt and pcov
+            ext_popt=p0*1.0 # Use the pre-optimized values as default
+            ext_popt[:cutoff]=popt # Replace with optimized values
+            ext_popt[1]+=kwargs["lon0"]
+            ext_popt[3]+=kwargs["clock0"]
+            ext_pcov=np.zeros((5,5)) # Fixed values get covariance rows and cols of 0 (IE as if perfectly known)
+            ext_pcov[:cutoff,:cutoff]=pcov # Replace upper left corner with optimized values
+            popt=ext_popt
+            pcov=ext_pcov
             fitx=fit_pixdata[:len(fit_pixdata)//2]
             fity=fit_pixdata[len(fit_pixdata)//2:]
             total_lensq=0
@@ -702,9 +700,9 @@ class CameraMount(object):
         self.d_frame(+1)
     def BTNfit(self, event):
         self.fit()
-    def autop(self, event):
+    def BTNautop(self, event):
         self.autofit(+1)
-    def autom(self, event):
+    def BTNautom(self, event):
         self.autofit(-1)
 
 

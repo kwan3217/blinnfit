@@ -1,12 +1,18 @@
 """
 
 """
+import sqlite3
+from contextlib import closing
 
 import pytest
 from kwanmath.gaussian import twoD_Gaussian,fit_twoD_Gaussian
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import image as mpimg
+
+from bsc import parse_stars, load_catalog
 from find_stars import find_star, find_stars
+from starfit.camera import Camera
 
 
 @pytest.mark.parametrize(
@@ -61,6 +67,7 @@ def test_find_star():
     print(find_star(img,ax=ax))
     plt.show()
 
+
 def test_find_stars():
     xs=200
     ys=200
@@ -84,6 +91,33 @@ def test_find_stars():
     plt.pause(0.001)
     print(find_stars(img,np.vstack((a_xcs+rng.normal(0,3,a_xcs.shape),a_ycs+rng.normal(0,3,a_xcs.shape))),ax=ax))
     plt.show()
+
+
+def test_find_star_real(casename:str="VoyagerUranusHD",framenum:int=3500):
+    fig= plt.figure("test_fit_stars box")
+    ax_box=fig.gca()
+    fig= plt.figure("test_fit_stars img")
+    ax_img=fig.gca()
+    dbname = f"data/db/frame_index_{casename}.sqlite"
+    infn = f"data/frames/{casename}/frame{framenum:04d}.png"
+    img = mpimg.imread(infn)[:,:,0]
+    height,width=img.shape
+    with closing(sqlite3.connect(dbname)) as conn:
+        camera=Camera.from_frame_db(conn,framenum,width=width,height=height)
+    v_w,names,mags,colors=parse_stars(load_catalog(limit_mag=6,count=4000),frame='ECLIPB1950')
+    g_cs,on_screen=camera.project(v_w)
+    g_cs=g_cs[:,on_screen]
+    names=names[on_screen]
+    found_cs,sigs,rhos=find_stars(img=img,g_cs=g_cs,names=names)
+    found=np.isfinite(rhos)
+    found_cs=found_cs[:,found]
+    names=names[found]
+    ax_img.imshow(img)
+    ax_img.plot(found_cs[0,:],found_cs[1,:],'y+')
+    for x,y,name in zip(found_cs[0,:],found_cs[1,:],names):
+        ax_img.text(x,y,name,color='y')
+    plt.show()
+
 
 
 

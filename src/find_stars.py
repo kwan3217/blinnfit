@@ -55,7 +55,7 @@ def subset_img(img:np.array,xc:int,yc:int,boxr:int=10)->np.array:
     return box,xc-x0,yc-y0
 
 
-def find_star(box:np.array,name:str=None,ax:Axes=None)->np.array:
+def find_star(box:np.array,name:str=None,ax:Axes=None,verbose:bool=False,ylabel:str=None)->np.array:
     """
     Given a subset of an image, find the one star in it
 
@@ -74,44 +74,58 @@ def find_star(box:np.array,name:str=None,ax:Axes=None)->np.array:
 
     # Try the 2D Gaussian fit on the subset
     reject=False
+    reject_reason="Succeeded"
+    reject_code=0
     data_fitted=None
     try:
         fit= fit_twoD_Gaussian(box,dn_size=1.0/255.0)
         data_fitted=fit.eval
         residual_stdev=np.std(box-fit.eval)
-        print(f"{name},amp={fit.amp:8.3f},xc={fit.xc:8.3f}+-{np.sqrt(fit.cov[1,1]):5.3f},yc={fit.yc:8.3f}+-{np.sqrt(fit.cov[2,2]):5.3f},sigx={fit.sigx:8.3f},sigy={fit.sigy:8.3f},rho={fit.rho:8.5f},ofs={fit.ofs:8.3f},res_stdev={residual_stdev:8.3f}")
+        if verbose:
+            print(f"{name},amp={fit.amp:8.3f},xc={fit.xc:8.3f}+-{np.sqrt(fit.cov[1,1]):5.3f},yc={fit.yc:8.3f}+-{np.sqrt(fit.cov[2,2]):5.3f},sigx={fit.sigx:8.3f},sigy={fit.sigy:8.3f},rho={fit.rho:8.5f},ofs={fit.ofs:8.3f},res_stdev={residual_stdev:8.3f}")
     except Exception:
-        print(f"{name} Reject: fit failed")
+        reject_reason=f"{name} Reject: fit failed"
+        reject_code=1
         reject=True
     if not reject and np.abs(fit.sigx) > 5:
-        print("Reject: bad sigx %f" % fit.sigx)
+        reject_reason=f"{name} Reject: bad sigx {fit.sigx:f}"
+        reject_code=2
         reject = True
     elif not reject and np.abs(fit.sigy) > 5:
-        print("Reject: bad sigy %f" % fit.sigy)
+        reject_reason=f"{name} Reject: bad sigy {fit.sigy}"
+        reject_code=3
         reject = True
     elif not reject:
         if fit.amp<residual_stdev*3:
-            print(f"Reject: low amplitude {fit.amp}<{3*residual_stdev}")
-            reject=True
+            reject_reason = f"{name} Reject: low amplitude {fit.amp}<{3*residual_stdev}"
+            reject_code = 4
+            reject = True
         elif fit.amp==0.00:
-            print(f"Reject: low abs amplitude {fit.amp}")
-            reject=True
+            reject_reason = f"{name} Reject: low abs amplitude {fit.amp}"
+            reject_code = 5
+            reject = True
         elif not np.isfinite(fit.cov[1,1]):
-            print(f"Reject: bad uncertainty on xc {fit.cov[1,1]}")
-            reject=True
+            reject_reason = f"{name} Reject: bad uncertainty on xc {fit.cov[1,1]}"
+            reject_code = 6
+            reject = True
     if reject:
         fit=namedtuple("fit_failed","xc yc cov")(xc = float('nan'),yc = float('nan'),cov=np.zeros((7,7))*float('nan'))
         residual_stdev=float('nan')
+    else:
+        print('.', end='')
     if ax is not None:
         color = 'r' if reject else 'g'
         if data_fitted is not None:
             ax.contour(data_fitted, 8, colors=color)
-        plt.pause(0.001)
-        # plt.waitforbuttonpress()
+        ax.set_xlabel(reject_reason)
+        if ylabel is not None:
+            ax.set_ylabel(ylabel)
+        plt.pause(0.1)
     return fit.xc, fit.yc, fit.cov[1:3,1:3],residual_stdev
 
 
-def find_stars(img:np.array,g_cs:np.array,boxr:int=10,names:list=None,ax:Axes=None):
+def find_stars(img:np.ndarray,g_cs:np.ndarray,boxr:int=10,
+               names:list=None,ax_img:Axes=None,ax_box:Axes=None,verbose:bool=False):
     """
     Given an image with stars on it and the predicted location of
     a bunch of stars, find the actual position of each star
@@ -126,13 +140,27 @@ def find_stars(img:np.array,g_cs:np.array,boxr:int=10,names:list=None,ax:Axes=No
     rho_c=np.zeros(g_cs.shape[1])
     std_c=rho_c*0
     min_std=float('inf')
-    for i,(g_xc,g_yc) in enumerate(zip(g_cs[0,:],g_cs[1,:])):
+    g_xs=g_cs[0,:]
+    g_ys=g_cs[1,:]
+    if ax_img is not None:
+        ax_img.clear()
+        ax_img.imshow(img)
+        ax_img.plot(g_xs, g_ys, 'y+')
+        ax_img.text(g_xs, g_ys, names)
+    for i,(g_xc,g_yc) in enumerate(zip(g_xs,g_ys)):
         name=names[i] if names is not None else None
         if np.isfinite(g_xc):
             g_xc = int(g_xc)
             g_yc = int(g_yc)
+            if ax_img is not None:
+                ax_img.clear()
+                ax_img.imshow(img)
+                ax_img.plot(g_xs, g_ys, 'y+')
+                ax_img.text(g_xc, g_yc, name)
+                ax_img.plot(np.array([-1,1,1,-1,-1])*boxr+g_xc,
+                            np.array([-1,-1,1,1,-1])*boxr+g_yc,'b-')
             box,g_bxc,g_byc=subset_img(img,g_xc,g_yc,boxr=boxr)
-            bxc,byc,pxcyc,resid_stdev=find_star(box,name=name,ax=ax)
+            bxc,byc,pxcyc,resid_stdev=find_star(box,name=name,ax=ax_box,verbose=verbose,ylabel=f"{g_xc=} {g_yc=}")
             result[0,i]=bxc+g_xc-g_bxc
             result[1,i]=byc+g_yc-g_byc
             sig_c[0,i]=np.sqrt(pxcyc[0,0])
@@ -144,6 +172,11 @@ def find_stars(img:np.array,g_cs:np.array,boxr:int=10,names:list=None,ax:Axes=No
         else:
             result[0,i]=float('nan')
             result[1,i]=float('nan')
+            if not verbose:
+                print('x',end='')
+        if not verbose:
+            if i%100==0 and i>0:
+                print()
     std_c/=min_std
     sig_c*=std_c
     return result,sig_c,rho_c
