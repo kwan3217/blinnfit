@@ -103,7 +103,7 @@ def test_find_star_real(casename:str="VoyagerUranusHD",framenum:int=3500):
     img = mpimg.imread(infn)[:,:,0]
     height,width=img.shape
     with closing(sqlite3.connect(dbname)) as conn:
-        camera=Camera.from_frame_db(conn,framenum,width=width,height=height)
+        camera=Camera.from_db(conn=conn, framenum=framenum, width=width, height=height)
     v_w,names,mags,colors=parse_stars(load_catalog(limit_mag=6,count=4000),frame='ECLIPB1950')
     g_cs,on_screen=camera.project(v_w)
     g_cs=g_cs[:,on_screen]

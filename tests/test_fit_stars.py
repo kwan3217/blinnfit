@@ -24,7 +24,7 @@ def test_fit_stars(framenum:int=3500,casename:str="VoyagerUranusHD"):
     img = mpimg.imread(infn)[:,:,0]
     height,width=img.shape
     with closing(sqlite3.connect(dbname)) as conn:
-        camera=Camera.from_frame_db(conn,framenum,width=width,height=height)
+        camera=Camera.from_db(conn=conn, framenum=framenum, width=width, height=height)
     v_w,names,mags,colors=parse_stars(load_catalog(limit_mag=6,count=4000),frame='ECLIPB1950')
     camera_opt=fit_stars(img=img,star_vs=v_w,star_names=names,camera0=camera,ax_box=ax_box,ax_img=ax_img)
     print(camera_opt)
