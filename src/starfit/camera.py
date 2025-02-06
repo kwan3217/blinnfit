@@ -65,9 +65,15 @@ class Camera:
         self.right - actual aspect ratio
         self.C - Camera matrix that transforms from world to camera coordinates
         """
+        #try:
         self.dir = llr2xyz(lat=self.lat, lon=self.lon,deg=True)
         self.sky = self._make_sky()
         self.right=4/self.right_denom
+        self.right=self.right_num/self.right_denom
+        #except Exception:
+            # Any exception would be because some needed
+            # parameter is None. We can swallow this kind of error.
+        #   return
         self._cmatrix()
     def _cmatrix(self)->np.ndarray:
         """
@@ -196,7 +202,7 @@ class Camera:
         """
         return cls(lat=params[0], lon=params[1], angle=params[2], clock=params[3], right_denom=params[4],width=width,height=height)
     @classmethod
-    def from_frame_db(cls, conn:Connection, i_frame:int, width:int,height:int)->'Camera':
+    def _from_frame_db(cls, conn:Connection, framenum:int,width:int=None,height:int=None)-> 'Camera':
         """
         Factory method to create a Camera instance from a numpy array of 5 elements.
 
@@ -207,41 +213,117 @@ class Camera:
         :raises ValueError: If the array does not have exactly 5 elements
         """
         # Order of first five fields must match the canonical param order
-        fields=("lat_c","lon_c","angle","clock","right_denom",
-                "lat_c_sig","lon_c_sig","angle_sig","clock_sig","right_denom_sig",
-                "lat_c_source","lon_c_source","angle_source","clock_source","right_denom_source")
-        members=("lat","lon","angle","clock","right_denom",
+        fields=("lat","lon","angle","clock","right_denom",
                 "lat_sig","lon_sig","angle_sig","clock_sig","right_denom_sig",
-                "lat_source","lon_source","angle_source","clock_source","right_denom_source")
+                "lat_source","lon_source","angle_source","clock_source","right_denom_source",
+                "et","et_source","width","height","right_num",
+                "nstars","rmsdiff")
         sql=f"select {','.join(fields)} from frames where framenum=?;"
-        params=conn.execute(sql,(i_frame,)).fetchone()
-        result=cls.from_params(params[:5],width=width,height=height)
+        params=conn.execute(sql,(framenum,)).fetchone()
+        result=cls.from_params(params[:5])
         # Get the optional parameters
-        result.__data__.update({k:v for k,v in zip(members,params) if v is not None})
-    def write_db(self,conn:Connection,i_frame:int):
-        fields={"lat_c":self.lat,
-                "lon_c":self.lon,
+        result.__dict__.update({k:v for k,v in zip(fields,params) if v is not None})
+        return result
+    @classmethod
+    def _interp_db(cls, *, conn, framenum):
+        result=cls()
+        def fill_in_value(fieldname):
+            # Sources are, in order of decreasing confidence:
+            # 4 - constrained. Certain parameters like right_denom and probably clock are actually constant
+            #     over the video. Also, the intent is that there is eventually a spline model for each of
+            #     the viewpoint variables. "Constrained" means either constant or splined.
+            # 3 - Fit via a least-squares model
+            # 2 - Fit manually
+            # 1 - Interpolated from higher-confidence sources
+            # 0 - unknown source
+            if result.__dict__[fieldname] is None or (fieldname=="et" and result.__dict__[fieldname+"_source"]<2):
+                sql=f"select framenum,{fieldname} from frames where {fieldname}_source>1 order by abs(framenum-?) asc"
+                print(sql)
+                with closing(conn.cursor()) as cur:
+                    this_has_row = False
+                    for this_row in cur.execute(sql,(framenum,)):
+                        if not this_has_row:
+                            fn0,val0=this_row
+                            this_has_row=True
+                        else:
+                            fn1,val1=this_row
+                            break
+                result.__dict__[fieldname]=linterp(fn0,val0,fn1,val1,framenum)
+                result.__dict__[fieldname+"_source"]=Source.INTERPOLATED
+        fill_in_value("lat")
+        fill_in_value("lon")
+        fill_in_value("angle")
+        fill_in_value("clock")
+        fill_in_value("right_denom")
+        fill_in_value("et")
+        result.lat_sig = np.inf
+        result.lon_sig = np.inf
+        result.angle_sig = np.inf
+        result.clock_sig = np.inf
+        result.right_denom_sig = np.inf
+        with closing(conn.cursor()) as cur:
+            sql = f"select width,height,right_num from frames order by abs(framenum-?) asc"
+            result.width,result.height,result.right_num=cur.execute(sql, (framenum,)).fetchone()
+            if result.right_num is None:
+                result.right_num=16.0
+        result.nstars = None
+        result.rmsdiff=np.inf
+        return result
+    @classmethod
+    def from_db(cls,*,conn,framenum):
+        # Check if this frame is already recorded
+        sql = f"select framenum from frames order by abs(framenum-?);"
+        with closing(conn.cursor()) as cur:
+            row = cur.execute(sql, (framenum,)).fetchone()
+        if row is not None:
+            if row[0] == framenum:
+                # Exact match, just load it
+                result= Camera._from_frame_db(conn=conn, framenum=framenum)
+            else:
+                # There was at least one row, so we can interpolate
+                result = Camera._interp_db(conn=conn, framenum=framenum)
+        else:
+            # No rows at all -- use initial conditions
+            # initial conditions valid for frame 675
+            result = Camera(lat=-2.4, lon=98.6 - 180, angle=45, right_denom=2.897004)
+            result.lat_sig = float('inf')
+            result.lon_sig = float('inf')
+            result.angle_sig = float('inf')
+            result.clock_sig = float('inf')
+            result.right_denom_sig = float('inf')
+            result.nstars = None
+        return result
+    def write_db(self,conn:Connection,framenum:int):
+        fields={"lat":self.lat,
+                "lon":self.lon,
                 "angle":self.angle,
                 "clock":self.clock,
                 "right_denom":self.right_denom}
         optional_fields = {
-            "lat_c_sig": self.lat_sig,
-            "lon_c_sig": self.lon_sig,
+            "lat_sig": self.lat_sig,
+            "lon_sig": self.lon_sig,
             "angle_sig": self.angle_sig,
             "clock_sig": self.clock_sig,
             "right_denom_sig": self.right_denom_sig,
-            "lat_c_source": int(self.lat_source),
-            "lon_c_source": int(self.lon_source),
-            "angle_source": int(self.angle_source),
-            "clock_source": int(self.clock_source),
-            "right_denom_source": int(self.right_denom_source)
+            "lat_source": int(self.lat_source),
+            "lon_source": self.lon_source,
+            "angle_source": self.angle_source,
+            "clock_source": self.clock_source,
+            "right_denom_source": self.right_denom_source,
+            "nstars": self.nstars,
+            "rmsdiff": self.rmsdiff,
+            "et":self.et,
+            "et_source":self.et_source,
+            "width": self.width,
+            "height": self.height
         }
         for k,v in optional_fields.items():
             if v is not None:
                 fields[k]=v
-        values=tuple([v for k,v in fields.items()]+[i_frame])
+        values=tuple([v for k,v in fields.items()]+[framenum])
         set_clause=",".join([f"{k}=?" for k,v in fields.items()])
-        sql=f"update frames set {set_clause} where framenum=?"
+        sql=(f"insert or replace into frames ({','.join([k for k,v in fields.items()])},timestamp,framenum) "
+             f"values ({','.join(['?' for k,v in fields.items()])},datetime('now'),?)")
         with conn:
             conn.execute(sql,values)
 
