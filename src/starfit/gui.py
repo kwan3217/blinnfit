@@ -16,12 +16,7 @@ from kwanmath.geodesy import llr2xyz
 from starfit.camera import cmatrix, project, make_sky, Camera
 from starfit.fit_stars import curve_fitsky_interface
 from starfit.videos import projects, ProjectBody
-from bsc import load_catalog, GetMag, GetDec, GetRA, GetName
-
-from kwanmath.interp import linterp
-
-from find_stars import find_stars
-from which_kernel import which_kernel
+from bsc import load_catalog, parse_stars
 
 cspice.furnsh('data/spice/vgr1.tm')
 cspice.furnsh('data/spice/vgr2.tm')

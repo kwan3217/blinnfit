@@ -15,7 +15,7 @@ from kwanmath.gaussian import correlation_matrix, infamily
 from matplotlib.figure import Figure
 from scipy.optimize import curve_fit, Bounds
 
-from find_stars import find_stars
+from starfit.find_stars import find_stars
 from starfit.camera import Camera, Source
 
 

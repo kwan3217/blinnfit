@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from matplotlib import image as mpimg
 
 from bsc import parse_stars, load_catalog
-from find_stars import find_star, find_stars
+from starfit.find_stars import find_star, find_stars
 from starfit.camera import Camera
 
 
