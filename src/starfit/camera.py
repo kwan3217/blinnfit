@@ -4,7 +4,7 @@ Functions to calculate the camera matrix
 Created: 1/31/25
 """
 from dataclasses import dataclass
-from enum import Enum
+from enum import IntEnum
 
 import numpy as np
 from sqlite3 import Connection
@@ -14,7 +14,7 @@ from kwanmath.interp import linterp
 from kwanmath.vector import vlength, vnormalize, vcross
 
 
-class Source(Enum):
+class Source(IntEnum):
     # Sources are, in order of increasing confidence:
     # unknown source
     UNKNOWN=0
