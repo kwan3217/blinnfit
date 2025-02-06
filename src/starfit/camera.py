@@ -3,6 +3,7 @@ Functions to calculate the camera matrix
 
 Created: 1/31/25
 """
+from contextlib import closing
 from dataclasses import dataclass
 from enum import IntEnum
 
@@ -68,13 +69,17 @@ class Camera:
         #try:
         self.dir = llr2xyz(lat=self.lat, lon=self.lon,deg=True)
         self.sky = self._make_sky()
-        self.right=4/self.right_denom
         self.right=self.right_num/self.right_denom
         #except Exception:
             # Any exception would be because some needed
             # parameter is None. We can swallow this kind of error.
         #   return
         self._cmatrix()
+        if type(self.lat_source)==int:         self.lat_source=Source(self.lat_source)
+        if type(self.lon_source) == int:       self.lat_source=Source(self.lat_source)
+        if type(self.angle_source)==int:       self.lat_source=Source(self.angle_source)
+        if type(self.clock_source)==int:       self.lat_source=Source(self.clock_source)
+        if type(self.right_denom_source)==int: self.lat_source=Source(self.right_denom_source)
     def _cmatrix(self)->np.ndarray:
         """
 
@@ -139,14 +144,19 @@ class Camera:
         t_wc[0:3,3,None]=loc
         self.M_wc=t_wc@r_wc
         self.M_cw=np.linalg.inv(self.M_wc)
-    def project(self,vs_w:np.ndarray,*,out_nan:bool=True,w:float=0):
+    def project(self,vs_w:np.ndarray,*,out_nan:bool=True,w:float=0)->tuple[np.ndarray,np.ndarray[bool]]:
         """
         Project the target into the camera field of view
-        :param v: Column vector (or stack of column vectors of shape (3,N)) in world coordinates
+        :param vs_w: Column vector (or stack of column vectors) of shape (3,N) or (4,N) in world coordinates
                        to project into camera coordinates.
-        :return: 2D position on camera, in the form of a shape (2,N) numpy array. Row 0 is
-                 horizontal coordinate, row 1 is vertical
+        :param out_nan: If True, then set coordinates of stars that are outside of the image to NaN
+        :param w: Homogeneous coordinate to use for vectors that don't already have them (IE it's (3,N) instead of (4,N))
+        :return: Tuple of:
+                 * 2D position on camera, in the form of a shape (2,N) numpy array. Row 0 is
+                   horizontal coordinate, row 1 is vertical
+                 * 1D numpy array of booleans of stars that have positions.
         """
+        self._update()
         if vs_w.shape[0]==3:
             # Add homogeneous coordinate if needed
             vs_w=np.vstack((vs_w,np.zeros(vs_w.shape[1])+w))
@@ -192,7 +202,7 @@ class Camera:
         """
         return np.array([self.lat, self.lon, self.angle, self.clock, self.right_denom])
     @classmethod
-    def from_params(cls, params: np.ndarray,width:int,height:int)->'Camera':
+    def from_params(cls, params: np.ndarray)->'Camera':
         """
         Factory method to create a Camera instance from a numpy array of 5 elements.
 
@@ -200,7 +210,7 @@ class Camera:
         :type params: np.ndarray
         :return: A new Camera instance
         """
-        return cls(lat=params[0], lon=params[1], angle=params[2], clock=params[3], right_denom=params[4],width=width,height=height)
+        return cls(lat=params[0], lon=params[1], angle=params[2], clock=params[3], right_denom=params[4])
     @classmethod
     def _from_frame_db(cls, conn:Connection, framenum:int,width:int=None,height:int=None)-> 'Camera':
         """
