@@ -6,10 +6,9 @@ the camera paramters and returns an optimized set of camera parameters.
 
 Created: 2/2/25
 """
-from functools import partial
+from copy import copy
 from typing import Callable
 
-import matplotlib
 import numpy as np
 from kwanmath.gaussian import correlation_matrix, infamily
 from matplotlib.figure import Figure
@@ -23,7 +22,6 @@ def fit_stars(*,img:np.ndarray,
                 star_vs:np.ndarray,
                 star_names:np.ndarray[str],
                 camera0:Camera,
-                i_freeze:int=5,
                 f_prefit:Callable=None,
                 f_findstars:Callable=None,
                 f_fitstars:Callable=None,
@@ -49,7 +47,7 @@ def fit_stars(*,img:np.ndarray,
     """
     if f_prefit is not None:
         f_prefit()
-    camera=camera0
+    camera=copy(camera0)
     done = False
     dropset=set()
     while not done:
@@ -62,22 +60,24 @@ def fit_stars(*,img:np.ndarray,
         this_star_pixs=this_star_pixs[:,goodstars]
         this_star_vs=star_vs[:,goodstars]
         this_star_names=star_names[goodstars]
-        (findx, findy), (sigx, sigy), rho = find_stars(img, this_star_pixs, names=this_star_names,
-                                                       ax_box=ax_box,ax_img=ax_img, boxr=10)  # self.ax_controls)
-        print("Number of good stars found:     ", np.sum(np.isfinite(findx)))
+        findc, sigc, rho = find_stars(img, this_star_pixs, names=this_star_names,
+                                      ax_box=ax_box,ax_img=ax_img, boxr=10)
+        w = np.isfinite(findc[0,:])
+        print("Number of good stars found:     ", np.sum(w))
         if f_findstars is not None:
-            f_findstars(findx,findy)
+            f_findstars(starpixo=findc,starpixc=this_star_pixs,w=w,names=this_star_names)
         # Trim down star list again. Those that weren't found get NaN for their pixel locations
-        w = np.isfinite(findx)
-        this_names = this_star_names[w]
-        findx = findx[w]
-        findy = findy[w]
-        sigx = sigx[w]
-        sigy = sigy[w]
+        this_star_names = this_star_names[w]
+        findc = findc[:,w]
+        findx=findc[0,:]
+        findy=findc[1,:]
+        sigc = sigc[:,w]
         rho = rho[w]
         this_star_vs=this_star_vs[:,w]
-        cov = np.zeros((len(findx) * 2, len(findx) * 2))
-        for i in range(len(findx)):
+        cov = np.zeros((findc.shape[1] * 2, findc.shape[1] * 2))
+        sigx = sigc[0, :]
+        sigy = sigc[1, :]
+        for i in range(findc.shape[1]):
             cov[i * 2, i * 2] = sigx[i] ** 2
             cov[i * 2 + 1, i * 2 + 1] = sigy[i] ** 2
             cov[i * 2 + 1, i * 2] = sigx[i] * sigy[i] * rho[i]
@@ -85,11 +85,11 @@ def fit_stars(*,img:np.ndarray,
         weights = 1.0 / np.sqrt(sigx ** 2 + sigy ** 2)
         # make an array [findx
         #                findy] then ravel it. The result is [findx|findy]
-        pixdata = np.vstack((findx, findy)).ravel()
+        pixdata = findc.ravel()
         # fiti=np.array(goodstars)[w]
         cutoff = 5
         fix_right_denom = True
-        mean_right_denom = 2.19884598665809  # Average of fit values from all frames where right_denom could be fit
+        mean_right_denom = 2.19884598665809*(camera0.right_num/4)  # Average of fit values from all frames where right_denom could be fit
         if fix_right_denom:
             cutoff = 4
             right_denom0 = mean_right_denom
@@ -97,26 +97,23 @@ def fit_stars(*,img:np.ndarray,
 
         vary = [[-90.0, 90.0], [-180.0, 180.0], [0.0, 120.0], [-180.0, 180.0], [0.0, np.inf]]
         # We intend to fit all the parameters at first, mark them as such
-        sources={k:Source.FIT for k in ("lat", "lon", "angle", "clock", "right_denom")}
-        kwargs = {"width": camera.width, "height": camera.height}
+        sources={k:Source.FIT for k in ("lat_source", "lon_source", "angle_source", "clock_source", "right_denom_source")}
         # Now check if we have enough stars. If not enough, turn off some parameters
-        if len(findx) < 2:
+        if findc.shape[1] < 2:
             cutoff = 2
-            kwargs.update({"angle": camera.angle, "clock": camera.clock, "right_denom": camera.right_denom})
-            del sources["angle"]
-            del sources["clock"]
-            del sources["right_denom"]
+            del sources["angle_source"]
+            del sources["clock_source"]
+            del sources["right_denom_source"]
             print("Very few usable stars, only fitting pointing")
-        elif len(findx) < 5:
+        elif findc.shape[1] < 2:
             cutoff = 3
-            kwargs.update({"clock": camera.clock, "right_denom": camera.right_denom})
-            sources["clock"]
-            sources["right_denom"]
+            del sources["clock_source"]
+            del sources["right_denom_source"]
             print("Few usable stars, only fitting pointing and angle")
         if fix_right_denom:
             # If right_denom is fixed, mark it as constrained despite above
-            right_denom = mean_right_denom
-            sources["right_denom"] = Source.MODELED
+            camera.right_denom = mean_right_denom
+            sources["right_denom_source"] = Source.MODELED
         # Now handle longitude. It wraps, so we hand the estimator
         # a zero guess and give the fit interface an offset to add to get the
         # actual longitude.
@@ -127,6 +124,7 @@ def fit_stars(*,img:np.ndarray,
         ub = [b for a, b in vary]
         bounds = Bounds(lb=lb[:cutoff], ub=ub[:cutoff])
         # Set up a partial to handle everything my old wrapper did
+        count=0
         def curve_fitsky_interface(starvec, lat, lon, this_angle=None, this_clock=None, this_right_denom=None):
             """
             Calculate the pixel positions of the given stars, given these camera parameters
@@ -157,18 +155,28 @@ def fit_stars(*,img:np.ndarray,
             # the vectors of the stars as inputs, so xdata will be an array of shape
             # (4,M//2) and we will return a 1D array of raveled x and y pixel coordinates
             # of each star
-            this_camera = Camera(lat=lat, lon=lon+lon0,
-                                 angle=camera.angle if this_angle is None else this_angle,
-                                 clock=camera.clock if this_clock is None else this_clock,
-                                 right_denom=camera.right_denom if this_right_denom is None else this_right_denom,
-                                 width=camera.width,height=camera.height)
+            nonlocal count
+            this_camera = copy(camera)
+            this_camera.lat=lat
+            this_camera.lon=lon=lon+lon0
+            this_camera.angle=camera.angle if this_angle is None else this_angle
+            this_camera.clock=camera.clock if this_clock is None else this_clock
+            this_camera.right_denom=camera.right_denom if this_right_denom is None else this_right_denom
+            #print(f"{count=}")
+            #print(f"old {camera=}")
+            #print(f"{this_camera=}")
             # We set out_nan=False so stars off the edge will still have
             # finite values, just off the edge of the image.
             prj,_ = this_camera.project(starvec,out_nan=False)
+            count+=1
             return prj.ravel()
-
         popt, pcov, *_ = curve_fit(curve_fitsky_interface, this_star_vs, pixdata, p0=p0[:cutoff], bounds=bounds, sigma=cov, absolute_sigma=True)
-        fit_pixdata = curve_fitsky_interface(this_star_vs, *popt)
+        # Calculated star coordinates from the best fit that curve_fit came up with
+        fitc = curve_fitsky_interface(this_star_vs, *popt)
+        fitx = fitc[:len(fitc) // 2]
+        fity = fitc[len(fitc) // 2:]
+        # Reravel the pixel coordinates
+        fitc=np.vstack((fitx,fity))
         # Extend popt and pcov
         ext_popt = p0 * 1.0  # Use the pre-optimized values as default
         ext_popt[:cutoff] = popt  # Replace with optimized values
@@ -177,35 +185,40 @@ def fit_stars(*,img:np.ndarray,
         ext_pcov[:cutoff, :cutoff] = pcov  # Replace upper left corner with optimized values
         popt = ext_popt
         pcov = ext_pcov
-        fitx = fit_pixdata[:len(fit_pixdata) // 2]
-        fity = fit_pixdata[len(fit_pixdata) // 2:]
         total_lensq = 0
-        for name, ox, oy, cx, cy in zip(this_names, findx, findy, fitx, fity):
-            lensq = (ox - cx) ** 2 + (oy - cy) ** 2
+        # Compare the observed (o*) and calculated (c*) positions of the pixels.
+        #  * Observed is where find_stars() found them
+        #  * Calculated is where they are supposed to be based on the camera fit
+        for name, ox, oy, cx, cy in zip(this_star_names, findx, findy, fitx, fity):
+            dx=ox-cx
+            dy=oy-cy
+            lensq = dx ** 2 + dy ** 2
             total_lensq += lensq
-            print(f"{name},{ox:8.3f},{oy:8.3f},{cx:8.3f},{cy:8.3f},{np.sqrt(lensq):8.3f}")
-        rmsdiff = np.sqrt(total_lensq / len(name))
+            #print(f"{name},{ox:8.3f},{oy:8.3f},{cx:8.3f},{cy:8.3f},{np.sqrt(lensq):8.3f}")
+        rmsdiff = np.sqrt(total_lensq / len(this_star_names))
         print(f"RMS diff: {rmsdiff:8.5f}")
         while popt[1] > 360:
             popt[1] -= 360
         while popt[1] < 0:
             popt[1] += 360
         cor = correlation_matrix(pcov)
-        camera=Camera.from_params(popt,width=camera.width,height=camera.height)
+        camera.lat,camera.lon,camera.angle,camera.clock,camera.right_denom=popt
         camera.lat_sig, camera.lon_sig, camera.angle_sig, camera.clock_sig, camera.right_denom_sig = tuple(
             [cor[i, i] for i in range(len(popt))])
         camera.__dict__.update(sources)
-        infam = infamily(np.vstack((fitx, fity)), np.vstack((findx, findy)), weights=weights)
+        camera.nstars=len(this_star_names)
+        camera.rmsdiff=rmsdiff
+        infam = infamily(fitc, findc, weights=weights)
         if len(infam) > 5:
             for i_infam in range(len(infam)):
                 if not infam[i_infam]:
-                    print(f"Star {this_names[i_infam]} not in family")
-                    dropset.add(this_names[i_infam])
+                    print(f"Star {this_star_names[i_infam]} not in family")
+                    dropset.add(this_star_names[i_infam])
             done = np.all(infam)
         else:
             done = True
-        if f_fitstars is not None:
-            f_fitstars(findx=findx,findy=findy,fitx=fitx,fity=fity,names=this_names)
+        if f_findstars is not None:
+            f_findstars(starpixo=findc, starpixc=fitc)
     return camera
 
 
