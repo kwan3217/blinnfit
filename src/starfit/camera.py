@@ -32,26 +32,31 @@ class Source(Enum):
 
 @dataclass
 class Camera:
-    lat:float         # Camera axis latitude in B1950ECLIP, deg [0,360)
-    lon:float         # camera axis longitude, deg [-90,90]
-    angle:float       # Horizontal field of view in degrees
-    clock:float       # Camera axis barrel twist, with 0deg such that up points as close to north pole as possible,
+    lat:float=None    # Camera axis latitude in B1950ECLIP, deg [0,360)
+    lon:float=None    # camera axis longitude, deg [-90,90]
+    angle:float=None  # Horizontal field of view in degrees
+    clock:float=None  # Camera axis barrel twist, with 0deg such that up points as close to north pole as possible,
                       # positive twists camera to right, negative to left, deg [-180,180]
-    right_denom:float # Denominator of right vector length. Right vector length is 4/right_denom, so right_denom=3 gives
+    right_denom:float=None # Denominator of right vector length. Right vector length is 4/right_denom, so right_denom=3 gives
                       # a 4:3 aspect ratio.
-    width:int         # Width of image in pixels
-    height:int        # Height of image in pixels
-    lat_sig:float=None
-    lon_sig:float=None
-    angle_sig:float=None
-    clock_sig:float=None
-    right_denom_sig:float=None
-    lat_source:Source=None
-    lon_source:Source=None
-    angle_source:Source=None
-    clock_source:Source=None
-    right_denom_source:Source=None
-    def __post_init__(self):
+    right_num:float=16.0
+    lat_sig:float=np.inf
+    lon_sig:float=np.inf
+    angle_sig:float=np.inf
+    clock_sig:float=np.inf
+    right_denom_sig:float=np.inf
+    lat_source:Source=Source.UNKNOWN
+    lon_source:Source=Source.UNKNOWN
+    angle_source:Source=Source.UNKNOWN
+    clock_source:Source=Source.UNKNOWN
+    right_denom_source:Source=Source.UNKNOWN
+    et:float=None
+    et_source:Source=Source.UNKNOWN
+    nstars:int=None
+    rmsdiff:float=None
+    width:int=None         # Width of image in pixels
+    height:int=None        # Height of image in pixels
+    def _update(self):
         """
         Calculate internal parameters from the values collected from __init__()
 
