@@ -125,7 +125,7 @@ def find_star(box:np.array,name:str=None,ax:Axes=None,verbose:bool=False,ylabel:
 
 
 def find_stars(img:np.ndarray,g_cs:np.ndarray,boxr:int=10,
-               names:list=None,ax_img:Axes=None,ax_box:Axes=None,verbose:bool=False):
+               names:list=None,ax_img:Axes=None,ax_box:Axes=None,verbose:bool=False)->tuple[np.ndarray,np.ndarray,np.ndarray]:
     """
     Given an image with stars on it and the predicted location of
     a bunch of stars, find the actual position of each star
@@ -133,7 +133,10 @@ def find_stars(img:np.ndarray,g_cs:np.ndarray,boxr:int=10,
     :param img: Image to search
     :param g_cs: guess coordinates of stars, in the form of a 2xN numpy array
     :param boxr:
-    :return:
+    :return: A tuple of:
+      * pixel coordinates of the found stars, 2xN array with row 0 as horizontal coordinate and row 1 as vertical
+      * One-sigma uncertainty of pixel coordinates in 2xN array
+      * Correlation between each x and y as a 1D N-element array
     """
     result=np.zeros(g_cs.shape)
     sig_c=result*0
