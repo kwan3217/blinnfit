@@ -1,0 +1,22 @@
+KPL/PCK
+
+The file pck00011.tpc has only Jupiter System III rotation. This tracks the magnetic field.
+For rendering, it is most often useful to use System II as it is designed to track the
+Great Red Spot. This kernel gives the rotation model for System II only, and must be used
+along with pck00011.tpc for a complete orientation model of Jupiter. Values are from the
+IAU 2015 report.
+
+#furnsh "pck00011.tpc"
+#furnsh "jupiter_system2.tpc"
+
+
+System I
+        BODY599_PM             = (    67.1        877.900      0. )
+System II
+        BODY599_PM             = (    43.3        870.270      0. )
+System III (from pck00011.tpc)
+        BODY599_PM             = (   284.95        870.5360000      0. )
+
+
+\begindata
+        BODY599_PM             = (    43.3        870.270      0. )
