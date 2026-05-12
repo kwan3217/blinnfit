@@ -2,7 +2,7 @@ import sqlite3
 from contextlib import closing
 
 import cv2
-from kwanmath.conic import fit_conic, eval2_conic, identify_conic, vector_to_conic
+from kwanmath.conic import fit_conic, eval2_conic, identify_conic
 from matplotlib.axes import Axes
 from matplotlib.backend_tools import Cursors
 import spiceypy as cspice
@@ -17,26 +17,24 @@ cspice.furnsh('data/spice/lsk/naif0012.tls')
 cspice.furnsh('data/spice/spk/de430.bsp')
 
 
-class EllFit(object):
-    q:np.ndarray=np.arange(0,np.pi*2,0.01)
-    c:np.ndarray=np.cos(q)
-    s:np.ndarray=np.sin(q)
-    # Resistor color code
-    colors = {0: '#404040', 1: '#804000', 2: '#ff0000', 3: '#ff8000', 4: '#ffff00', 5: '#00ff00', 6: '#0000ff',
-             7: '#8000ff', 8: '#c0c0c0', 9: '#ffffff'}
-
-    def __init__(self,*,casename:int,initframe:int,spice_id:int):
+class FovFit(object):
+    def __init__(self,*,casename:int,initframe:int,seqid:str,imgid:int,fov_tan:float=0.003700098):
         #initialize from parameters
         self.casename=casename
         self.initframe=initframe
         self.framenum=self.initframe
-        self.spice_id=spice_id
+        self.seqid=seqid
+        self.imgid=imgid
         self.framepat=f"data/frames/{casename}/frame%04d.png"
-        self.Ap=None
+        # Data from vg2_issna_v02.ti, field of view vector. Field of view is a square
+        # with a boresight of 1 and an x and y of +-0.0037... . Convert this to
+        # a full-width field of view in degrees
         self.has_img=False
+        self.fov_tan=fov_tan
+        self.fov_size = 2 * np.degrees(np.arctan(fov_tan))
 
         # Open the database
-        self.open_ellipse_index()
+        self.open_fov_index()
 
         #set up graphics
         self.fig = plt.figure("Main fitting")
@@ -73,30 +71,25 @@ class EllFit(object):
 
         self.fig.canvas.mpl_connect('motion_notify_event', hover)
         self.imshow()
-    def open_ellipse_index(self):
+    def open_fov_index(self):
         """
         Open an SQLite database and make sure that the appropriate table(s) are present
         in the database
         """
         dbname=f"data/db/frame_index_{self.casename}.sqlite"
         self.conn = sqlite3.connect(dbname)
-        sql = ("create table if not exists ellipses (" +
+        sql = ("create table if not exists fovs (" +
                "framenum    integer not null," +
                "timestamp datetime default CURRENT_TIMESTAMP,"
-               "spice_id integer,"
-               "n_clicks,"
-               "A real,"+
-               "B real," +
-               "C real," +
-               "D real," +
-               "E real," +
-               "cx real," +
-               "cy real," +
-               "ax real," +
-               "ay real," +
-               "bx real," +
-               "by real," +
-               "primary key (framenum,spice_id))")
+               "seqid string,"
+               "imgid int,"
+               "fov_size real,"
+               "x0 real,y0 real,"
+               "x1 real,y1 real,"
+               "x2 real,y2 real,"
+               "x3 real,y3 real,"
+               "angle real,"
+               "primary key (framenum,seqid,imgid))")
         with self.conn:
             self.conn.execute(sql)
     def makebtn(self,x,y,name,f):
@@ -108,8 +101,6 @@ class EllFit(object):
     def load_image(self):
         infn = self.framepat % self.framenum
         self.backimg = mpimg.imread(infn)
-        #self.edge=cv2.Canny((self.backimg[:,:,2]*255.0).astype(np.uint8), 50, 150)
-        #self.backimg+=self.edge[:,:,np.newaxis]/255.0
         self.read_record()
     def imshow(self):
         if self.has_img:
@@ -118,13 +109,12 @@ class EllFit(object):
         self.ax.imshow(self.backimg)
         if self.has_img:
             self.ax.axis([x0,x1,y0,y1])
-        #self.ax.axis('scaled')
         self.clicks,*_=self.ax.plot([],[],'g+',markersize=20,mew=3)
         self.y0plot,*_=self.ax.plot([],[],'b-')
         self.y1plot,*_=self.ax.plot([],[],'r-')
         self.center,*_=self.ax.plot([],[],'k*')
         self.ax.set_title(f"Frame {self.framenum}")
-        self.plot_ellipse()
+        self.plot_fov()
         self.has_img=True
         plt.pause(0.001)
     def set_frame(self,framenum):
@@ -132,68 +122,91 @@ class EllFit(object):
         self.load_image()
         self.read_record()
         self.imshow()
-        self.plot_ellipse()
+        self.plot_fov()
     def d_frame(self,d_frame):
         self.set_frame(self.framenum+d_frame)
+    def figure_zoom(self):
+        """
+        Figure out the zoom level of a zoomed-in image with no stars based on the
+        square marked field of view
+        :param conn:
+        :return:
+        """
+        # For Oberon, the moon is very near the center of the field of view.
+        # It's also zoomed in a long way so the small angle approximation
+        # is king.
+        dx10 = self.xclicks[1]-self.xclicks[0]
+        dy10 = self.yclicks[1]-self.yclicks[0]
+        dx21 = self.xclicks[2]-self.xclicks[1]
+        dy21 = self.yclicks[2]-self.yclicks[1]
+        dx32 = self.xclicks[3]-self.xclicks[2]
+        dy32 = self.yclicks[3]-self.yclicks[2]
+        dx03 = self.xclicks[0]-self.xclicks[3]
+        dy03 = self.yclicks[0]-self.yclicks[3]
+        dr10 = np.sqrt(dx10 ** 2 + dy10 ** 2)
+        dr21 = np.sqrt(dx21 ** 2 + dy21 ** 2)
+        dr32 = np.sqrt(dx32 ** 2 + dy32 ** 2)
+        dr03 = np.sqrt(dx03 ** 2 + dy03 ** 2)
+        # All of these will be in degrees per pixel
+        pix_scale_10 = self.fov_size / dr10
+        pix_scale_21 = self.fov_size / dr21
+        pix_scale_32 = self.fov_size / dr32
+        pix_scale_03 = self.fov_size / dr03
+        pix_scale = (pix_scale_10 + pix_scale_21 + pix_scale_32 + pix_scale_03) / 4
+        print(f"{pix_scale=}")
+        # amount of tangent at the center over one pixel
+        tan_pix_scale = np.tan(np.deg2rad(pix_scale))
+        # Tangent from center to horizontal edge
+        tan_img_over_2 = self.backimg.shape[1] / 2 * tan_pix_scale
+        # Horizontal render FOV is then 2*the angle with the
+        # above tangent. Express it in degrees.
+        angle = 2 * np.rad2deg(tan_img_over_2)
+        print(f"{angle=}")
+        return angle
     def update_click(self):
         this_xclicks=np.array(self.xclicks)
         this_yclicks=np.array(self.yclicks)
         self.clicks.set_data(this_xclicks,this_yclicks)
-        if len(this_xclicks)>=5:
-            self.Ap,self.Bp,self.Cp,self.Dp,self.Ep=fit_conic(np.row_stack((this_xclicks,this_yclicks)),scale=1000.0)
-            self.cv,self.av,self.bv=identify_conic(self.Ap,self.Bp,self.Cp,self.Dp,self.Ep,scale=1000.0)
-            self.cv=self.cv.reshape(-1)
-            fields = {"spice_id": self.spice_id,
-                      "n_clicks": len(this_xclicks),
-                      "A": self.Ap[0]/(1000**2),
-                      "B": self.Bp[0]/(1000**2),
-                      "C": self.Cp[0]/(1000**2),
-                      "D": self.Dp[0]/(1000**1),
-                      "E": self.Ep[0]/(1000**1),
-                      "cx":self.cv[0],
-                      "cy":self.cv[1],
-                      "ax":self.av[0],
-                      "ay":self.av[1],
-                      "bx":self.bv[0],
-                      "by":self.bv[1]
+        if len(this_xclicks)==4:
+            fields = {"seqid":self.seqid,
+                      "imgid":self.imgid,
+                      "fov_size":self.fov_size,
+                      "x0":self.xclicks[0],
+                      "y0":self.yclicks[0],
+                      "x1":self.xclicks[1],
+                      "y1":self.yclicks[1],
+                      "x2":self.xclicks[2],
+                      "y2":self.yclicks[2],
+                      "x3":self.xclicks[3],
+                      "y3":self.yclicks[3],
+                      "angle":self.figure_zoom()
                      }
             values = tuple([v for k, v in fields.items()] + [self.framenum])
-            sql = (f"insert or replace into ellipses ({','.join([k for k, v in fields.items()])},timestamp,framenum) "
+            sql = (f"insert or replace into fovs ({','.join([k for k, v in fields.items()])},timestamp,framenum) "
                    f"values ({','.join(['?' for k, v in fields.items()])},datetime('now'),?)")
             with self.conn:
                 self.conn.execute(sql,values)
-        self.plot_ellipse()
+        self.plot_fov()
         plt.pause(0.001)
-    def plot_ellipse(self):
+    def plot_fov(self):
         this_xclicks=np.array(self.xclicks)
         this_yclicks=np.array(self.yclicks)
         self.clicks.set_data(this_xclicks,this_yclicks)
-        if self.Ap is not None:
-            self.cv, self.av, self.bv = identify_conic(self.Ap, self.Bp, self.Cp, self.Dp, self.Ep, scale=1000.0)
-            self.cv = self.cv.reshape(-1)
-            axes = np.column_stack((self.cv + self.av, self.cv, self.cv + self.bv))
-            r = eval2_conic(self.Ap, self.Bp, self.Cp, self.Dp, self.Ep, scale=1000.0)
-            self.y0plot.set_data(r[0, :], r[1, :])
-            self.y1plot.set_data(axes[0, :], axes[1, :])
+        if len(this_xclicks)==4:
+            self.y0plot.set_data(np.hstack((this_xclicks,this_xclicks[0])),np.hstack((this_yclicks,this_yclicks[0])))
     def read_record(self):
-        sql=("select cx,cy,ax,ay,bx,by,et,lat,lon,angle,clock,right_num,right_denom "
-             "from ellipses left join frames on ellipses.framenum=frames.framenum "
-             "where ellipses.framenum=? and ellipses.spice_id=?;")
+        sql=("select x0,y0,x1,y1,x2,y2,x3,y3,et,lat,lon,frames.angle as frame_angle,clock,right_num,right_denom "
+             "from fovs left join frames on fovs.framenum=frames.framenum where fovs.framenum=? and fovs.seqid=? and fovs.imgid=?;")
         with self.conn:
             with closing(self.conn.cursor()) as cur:
-                row=cur.execute(sql,(self.framenum,self.spice_id)).fetchone()
+                row=cur.execute(sql,(self.framenum,self.seqid,self.imgid)).fetchone()
         if row is not None:
-            cx,cy,ax,ay,bx,by,et,lat,lon,angle,clock,right_num,right_denom=row
-            self.cv=np.array([[cx],[cy]])
-            self.av=np.array([[ax],[ay]])
-            self.bv=np.array([[bx],[by]])
-            self.Ap,self.Bp,self.Cp,self.Dp,self.Ep,ve=vector_to_conic(cv=self.cv,av=self.av,bv=self.bv,scale=1000.0,get_points=True)
-            this_xclicks=ve[0,:]
-            this_yclicks=ve[1,:]
+            x0,y0,x1,y1,x2,y2,x3,y3,et,lat,lon,angle,clock,right_num,right_denom=row
+            this_xclicks=np.array((x0,x1,x2,x3))
+            this_yclicks=np.array((y0,y1,y2,y3))
             self.xclicks=list(this_xclicks)
             self.yclicks=list(this_yclicks)
         else:
-            self.Ap=None
             self.xclicks=[]
             self.yclicks=[]
     # Callbacks only below this point. Callbacks should be trivial.

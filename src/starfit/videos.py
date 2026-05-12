@@ -44,6 +44,18 @@ uranus_moons:dict[int,ProjectBody]={
 }
 uranus_rings=[41910,42300,42600,44800,45700,47200,47700,48300,51200] # 6,5,4,alpha,beta,eta,gamma,delta,epsilon
 
+jupiter_moons:dict[int,ProjectBody]={
+    599: ProjectBody(name="Jupiter" , r=71492, a=71492, b=71492, c=66854),
+    501: ProjectBody(name="Io"      , r= 1830, a=1829.4, b=1819.4, c=1815.7, parent=599),
+    502: ProjectBody(name="Europa"  , r= 1560, a=1562.6, b=1560.3, c=1559.5, parent=599),
+    503: ProjectBody(name="Ganymede", r= 2630, a=2631.2, b=2631.2, c=2631.2, parent=599),
+    504: ProjectBody(name="Callisto", r= 2410, a=2410.3, b=2410.3, c=2410.3, parent=599),
+    505: ProjectBody(name="Amalthea", r=  250, a=2410.3, b=2410.3, c=2410.3, parent=599),
+     10: ProjectBody(name="Sun",      r=695700, a=695700, b=695700, c=695700, parent=599)
+}
+jupiter_rings=[122500,129000] # Main ring inner and outer edge -- only one observed by Voyager
+
+
 neptune_moons:dict[int,ProjectBody]={
         # Spice ID
         #     Name     Pre-encounter radius (km)
@@ -69,6 +81,7 @@ class Project:
     badstars:set[int]=field(default_factory=set)
     bodies:dict[int,ProjectBody]=field(default_factory=dict)
     rings:list[float]=field(default_factory=list)
+    vgr:int=2
 
 
 projects={
@@ -82,5 +95,7 @@ projects={
     "VoyagerNeptune":        Project(framepat='data/frames/VoyagerNeptune/frame%04d.png',  goodstars=goodstarsVoyagerNeptune,
                                      badstars=badstarsVoyagerNeptune,bodies=neptune_moons,rings=neptune_rings),
     "VoyagerNeptuneB":       Project(framepat='data/frames/VoyagerNeptuneB/frame%04d.png', goodstars=goodstarsVoyagerNeptune,
-                                     badstars=badstarsVoyagerNeptune,bodies=neptune_moons,rings=neptune_rings)
+                                     badstars=badstarsVoyagerNeptune,bodies=neptune_moons,rings=neptune_rings),
+    "Voyager1Jupiter": Project(framepat='data/frames/Voyager1Jupiter/frame%04d.png', goodstars=goodstarsVoyagerUranus,
+                               badstars=badstarsVoyagerUranus, bodies=jupiter_moons, rings=jupiter_rings,vgr=1),
 }

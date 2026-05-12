@@ -3,6 +3,9 @@
 #declare BusR=38;
 #declare BusH=17;
 
+#include "KwanMath.inc"
+#include "SpiceQuat.inc"
+
 #declare Decagon=prism {
    linear_spline
    0,1,10
@@ -243,7 +246,7 @@
     <0,0,-33>,<0,0,-36-CollarD>,CollarR
     open
   }
-  pigment {color rgb <1,1,1>}
+  pigment {color rgbf <1,1,1,0.5>}
 }
 
 #declare HGASupport=union {
@@ -475,22 +478,51 @@
 }
 
 #declare ScanPlatform=union {
-  object {ISSNA}
-  object {ISSWA}
-  object {PPS}
-  object {IRIS}
-  object {UVS}
-  box {
-    <-3,8,-16>,<-8,-8,10>
+  union {
+    object {ISSNA}
+    object {ISSWA}
+    object {PPS}
+    object {IRIS}
+    object {UVS}
+    box {
+      <-3,8,-16>,<-8,-8,10>
+    }
+    box {
+      <4,6,-7>,<16,-2,3>
+    }
+    cylinder {
+      <-5,0,0>,<22,0,0>,2
+    }
+    rotate x*90
+    rotate z*90
   }
-  box {
-    <4,6,-7>,<16,-2,3>
-  }
-  cylinder {
-    <-5,0,0>,<22,0,0>,2
-  }
+  cylinder {0,x*100,1 pigment {color rgb x}}
+  cylinder {0,y*100,1 pigment {color rgb y}}
+  cylinder {0,z*500,1 pigment {color rgb z}}
+  cylinder {0,-x*100,1 pigment {color rgb 1-x}}
+  cylinder {0,-y*100,1 pigment {color rgb 1-y}}
+  cylinder {0,-z*100,1 pigment {color rgb 1-z}}
   pigment {color rgb <0.5,0.5,0.5>}
   no_shadow
 }
 
 #declare ScanPivot=<0,143,-29.5>;
+
+#macro Voyager(VGR,ET)
+union {
+  object {
+    VoyagerBody
+  }
+  object {
+    ScanPlatform
+    #declare ToCameraFrame=pxform(concat("VG",str(VGR,0,0),"_ISSNA"),concat("VG",str(VGR,0,0),"_SC_BUS"),ET);
+    QuatTrans(ToCameraFrame,ScanPivot)
+    PrintQuat("ToCameraFrame: ",ToCameraFrame)
+    //transform
+    //rotate -z*90
+    //translate ScanPivot
+  }
+  scale 1/39.37
+  translate z*1.6
+}
+#end

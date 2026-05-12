@@ -92,7 +92,7 @@ def fit_stars(*,img:np.ndarray,
         mean_right_denom = 2.19884598665809*(camera0.right_num/4)  # Average of fit values from all frames where right_denom could be fit
         if fix_right_denom:
             cutoff = 4
-            right_denom0 = mean_right_denom
+            camera0.right_denom = mean_right_denom
         p0 = camera0.to_params()
 
         vary = [[-90.0, 90.0], [-180.0, 180.0], [0.0, 120.0], [-180.0, 180.0], [0.0, np.inf]]
@@ -105,7 +105,7 @@ def fit_stars(*,img:np.ndarray,
             del sources["clock_source"]
             del sources["right_denom_source"]
             print("Very few usable stars, only fitting pointing")
-        elif findc.shape[1] < 2:
+        elif findc.shape[1] < 3:
             cutoff = 3
             del sources["clock_source"]
             del sources["right_denom_source"]
@@ -170,6 +170,10 @@ def fit_stars(*,img:np.ndarray,
             prj,_ = this_camera.project(starvec,out_nan=False)
             count+=1
             return prj.ravel()
+        print(f"Pre-fit guess:  lat={p0[0]:7.3f}, lon={lon0:7.3f}, "
+              f"{'/' if cutoff<=2 else ''}angle={p0[2]:6.3f}, "
+              f"{'/' if cutoff<=3 else ''}clock={p0[3]:6.3f}, "
+              f"{'/' if cutoff<=4 else ''}right_denom={p0[4]:6.4f},")
         popt, pcov, *_ = curve_fit(curve_fitsky_interface, this_star_vs, pixdata, p0=p0[:cutoff], bounds=bounds, sigma=cov, absolute_sigma=True)
         # Calculated star coordinates from the best fit that curve_fit came up with
         fitc = curve_fitsky_interface(this_star_vs, *popt)
@@ -181,6 +185,10 @@ def fit_stars(*,img:np.ndarray,
         ext_popt = p0 * 1.0  # Use the pre-optimized values as default
         ext_popt[:cutoff] = popt  # Replace with optimized values
         ext_popt[1] += lon0
+        print(f"Post-fit guess: lat={ext_popt[0]:7.3f}, lon={ext_popt[1]:7.3f}, "
+              f"{'/' if cutoff<=2 else ''}angle={ext_popt[2]:6.3f}, "
+              f"{'/' if cutoff<=3 else ''}clock={ext_popt[3]:6.3f}, "
+              f"{'/' if cutoff<=4 else ''}right_denom={ext_popt[4]:6.4f},")
         ext_pcov = np.zeros((5, 5))  # Fixed values get covariance rows and cols of 0 (IE as if perfectly known)
         ext_pcov[:cutoff, :cutoff] = pcov  # Replace upper left corner with optimized values
         popt = ext_popt

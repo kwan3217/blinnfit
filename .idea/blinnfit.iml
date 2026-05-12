@@ -13,6 +13,11 @@
       <excludeFolder url="file://$MODULE_DIR$/data/frames/pov" />
       <excludeFolder url="file://$MODULE_DIR$/data/iss" />
       <excludeFolder url="file://$MODULE_DIR$/src/blinnfit.egg-info" />
+      <excludeFolder url="file://$MODULE_DIR$/data" />
+      <excludeFolder url="file://$MODULE_DIR$/data/frames/SuperTrajectoryB" />
+      <excludeFolder url="file://$MODULE_DIR$/data/frames/Voyager1Jupiter" />
+      <excludeFolder url="file://$MODULE_DIR$/data/frames/Voyager2Jupiter" />
+      <excludeFolder url="file://$MODULE_DIR$/data/frames/composite" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

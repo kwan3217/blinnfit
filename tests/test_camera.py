@@ -5,6 +5,7 @@ Created: 2/3/25
 """
 import sqlite3
 from contextlib import closing
+from itertools import product
 
 import numpy as np
 import pytest
@@ -50,3 +51,20 @@ def test_camera_sgr(framenum:int=3500,casename:str="VoyagerUranusHD"):
     pixs,on_screen=camera.project(vs_w)
     print(pixs,on_screen)
 
+@pytest.mark.parametrize(
+    "lat,lon,angle,clock,right_num,right_denom,width,height",
+    [( 0,  0,   45,    0,       16,          9, 1280,720),
+     ( 0,  0,   45,    0,        4,          3,  640,480),
+     (90, 20,   45,    0,       16,          9, 1280,720),
+     ]
+)
+def test_camera_round_trip(lat,lon,angle,clock,right_num,right_denom,width,height):
+    camera=Camera(lat=lat,lon=lon,angle=angle,clock=clock,right_num=right_num,right_denom=right_denom,width=width,height=height)
+    pixs_x=np.array([0,1,2,3,4])*width/4
+    pixs_y=np.array([0,2,4])*height/4
+    pixs_c=np.column_stack(list(product(pixs_x,pixs_y)))
+    print(pixs_c.shape)
+    print(pixs_c)
+    vs_w=camera.project_inv(pixs_c)
+    pixs_c_round_trip,*_=camera.project(vs_w,out_nan=False)
+    assert np.allclose(pixs_c,pixs_c_round_trip)

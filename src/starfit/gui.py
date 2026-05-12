@@ -15,10 +15,11 @@ from starfit.fit_stars import fit_stars
 from starfit.videos import projects, ProjectBody
 from bsc import load_catalog, parse_stars
 
+cspice.furnsh('data/spice/spk/de430.bsp')
 cspice.furnsh('data/spice/vgr1.tm')
 cspice.furnsh('data/spice/vgr2.tm')
 cspice.furnsh('data/spice/lsk/naif0012.tls')
-cspice.furnsh('data/spice/spk/de430.bsp')
+cspice.furnsh('data/spice/pck/pck00011.tpc')
 
 
 class CameraMount(object):
@@ -26,13 +27,14 @@ class CameraMount(object):
     c:np.ndarray=np.cos(q)
     s:np.ndarray=np.sin(q)
     # Resistor color code
-    colors = {0: '#404040', 1: '#804000', 2: '#ff0000', 3: '#ff8000', 4: '#ffff00', 5: '#00ff00', 6: '#0000ff',
+    colors = {0: '#ff00ff', 1: '#804000', 2: '#ff0000', 3: '#ff8000', 4: '#ffff00', 5: '#00ff00', 6: '#0000ff',
              7: '#8000ff', 8: '#c0c0c0', 9: '#ffffff'}
 
     def __init__(self,*,casename:int,initframe:int):
         #initialize from parameters
         self.casename=casename
         self.initframe=initframe
+        self.has_img=False
 
         #initialize by table lookup
         self.project=projects[self.casename]
@@ -43,6 +45,7 @@ class CameraMount(object):
         self.ringcenter:int=list(self.spiceobjs.keys())[0]
         self.rings:dict[float]=self.project.rings
         self.framenum:int=self.initframe
+        self.spicesc=-30-self.project.vgr
 
         #set up graphics
         self.fig = plt.figure("Main fitting")
@@ -146,6 +149,9 @@ class CameraMount(object):
                "right_denom     real," +
                "right_denom_sig real," +
                "right_denom_source integer," +
+               "width           integer," +
+               "height          integer," +
+               "right_num       real," +
                "primary key (framenum))")
         cur = self.conn.cursor()
         cur.execute(sql)
@@ -168,7 +174,6 @@ class CameraMount(object):
     def plotspice(self,this_camera:Camera=None):
         if this_camera is None:
             this_camera=self.camera
-        # print(f"Voyager 2 in kernel {which_kernel('SPK',-32,self.camera.et)}")
         for i_spice,body in self.spiceobjs.items():
             try:
                 if body.dt is not None and body.dt>0:
@@ -186,11 +191,11 @@ class CameraMount(object):
                 # Observe the target natural spice object from Voyager
                 # at the given time, in the body's own body-fixed frame
                 try:
-                    xbody_vb,lt=spkezr(str(i_spice),this_camera.et,bodyframe,"NONE","-32")
+                    xbody_vb,lt=spkezr(str(i_spice),this_camera.et,bodyframe,"NONE",str(self.spicesc))
                 except SpiceFRAMEDATANOTFOUND:
                     # Frame not found -- no frame is included for Nereid
                     bodyframe="ECLIPB1950"
-                    xbody_vb,lt=spkezr(str(i_spice),this_camera.et,bodyframe,"NONE","-32")
+                    xbody_vb,lt=spkezr(str(i_spice),this_camera.et,bodyframe,"NONE",str(self.spicesc))
                 # position and velocity of Voyager relative to body is
                 # reverse of position of body relative to Voyager. Likewise
                 # for velocity.
@@ -223,7 +228,7 @@ class CameraMount(object):
                 if body.parent is not None:
                     et_orbit=(np.arange(100)-50)*60+this_camera.et
                     v_orbit=np.ones((4,100))
-                    rmoon_vi=spkezr(str(i_spice),this_camera.et,"ECLIPB1950","NONE","-32")[0][0:3].reshape(-1,1)
+                    rmoon_vi=spkezr(str(i_spice),this_camera.et,"ECLIPB1950","NONE",str(self.spicesc))[0][0:3].reshape(-1,1)
                     for i_et,this_et in enumerate(et_orbit):
                         v_orbit[:3,i_et]=spkezr(str(i_spice),this_et,"ECLIPB1950","NONE",str(body.parent))[0][0:3]
                     v_orbit[0:3,:]-=v_orbit[0:3,None,50]
@@ -236,10 +241,10 @@ class CameraMount(object):
                 traceback.print_exc()
                 print(f"{i_spice} not in kernels")
         for i_ring,ring_r in enumerate(self.rings):
-            name="Uranus"
+            name=self.project.bodies[self.ringcenter].name
             i_spice=self.ringcenter
             bodyframe = f"IAU_{name.upper()}"
-            xbody_vb, lt = spkezr(str(i_spice), this_camera.et, bodyframe, "NONE", "-32")
+            xbody_vb, lt = spkezr(str(i_spice), this_camera.et, bodyframe, "NONE", str(self.spicesc))
             xvoy_bb = -xbody_vb
             rvoy_bb = xvoy_bb[:3]
             # ring points in body centered body frame
@@ -255,13 +260,18 @@ class CameraMount(object):
             pixring,_ = this_camera.project(vs_w=rring_vi)
             self.ax.plot(pixring[0, :],pixring[1, :],'c-')
     def imshow(self):
+        if self.has_img:
+            x0,x1,y0,y1=self.ax.axis()
         self.ax.clear()
         self.ax.imshow(self.backimg)
+        if self.has_img:
+            self.ax.axis([x0,x1,y0,y1])
         self.ax.axis('scaled')
         self.ax.set_xlabel(timout(self.camera.et, "YYYY-MM-DD HR:MN:SC.###::UTC"))
         self.ax.set_title(f"Frame {self.framenum}")
         self.ax.set_ylabel(f"lat={self.camera.lat:.1f}, lon={self.camera.lon:.1f}, "
-                           f"angle={self.camera.angle:.1f}, right={self.camera.right_num:.0f}/{self.camera.right_denom:.3f}")
+                           f"angle={self.camera.angle:.3f}, clock={self.camera.clock:.3f}, right={self.camera.right_num:.0f}/{self.camera.right_denom:.3f}")
+        self.has_img=True
     def plot_predicted_stars(self,this_camera:Camera=None):
         if this_camera is None:
             this_camera=self.camera

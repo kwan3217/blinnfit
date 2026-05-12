@@ -1,15 +1,19 @@
 \begindata
 
-PATH_VALUES = ( 'data/spice/ck',
-                'data/spice/fk',
-                'data/spice/ik',
-                'data/spice/sclk',
-                'data/spice/spk',
-                'data/spice/spk')
+PATH_VALUES = ( '/home/jeppesen/workspace/blinnfit/data/spice/ck',
+                '/home/jeppesen/workspace/blinnfit/data/spice/fk',
+                '/home/jeppesen/workspace/blinnfit/data/spice/ik',
+                '/home/jeppesen/workspace/blinnfit/data/spice/lsk',
+                '/home/jeppesen/workspace/blinnfit/data/spice/pck',
+                '/home/jeppesen/workspace/blinnfit/data/spice/sclk',
+                '/home/jeppesen/workspace/blinnfit/data/spice/spk',
+                '/home/jeppesen/workspace/blinnfit/data/spice/spk')
 
 PATH_SYMBOLS = ('CK',
                 'FK',
                 'IK',
+                'LSK',
+                'PCK',
                 'SCLK',
                 'SPK',
                 'SAT')
@@ -19,6 +23,7 @@ KERNELS_TO_LOAD = ('$CK/vgr1_super.bc',
                    '$CK/vg1_jup_qmw_wa.bc',
                    '$CK/vg1_sat_qmw_na.bc',
                    '$CK/vg1_sat_qmw_wa.bc',
+                   '$CK/v1j_slew.bc',
                    '$CK/vg1_jup_version1_type1_iss_sedr.bc',
                    '$CK/V1SAT_VERSION5_TYPE3_MERGED_CSMITHED.ck',
                    '$FK/vg1_v02.tf',

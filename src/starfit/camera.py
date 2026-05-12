@@ -13,22 +13,42 @@ from sqlite3 import Connection
 from kwanmath.geodesy import llr2xyz
 from kwanmath.interp import linterp
 from kwanmath.vector import vlength, vnormalize, vcross
+from spiceypy import str2et
 
 
 class Source(IntEnum):
     # Sources are, in order of increasing confidence:
     # unknown source
     UNKNOWN=0
-    # Interpolated from higher-confidence sources
+    # 1 - Interpolated from higher-confidence sources
     INTERPOLATED=1
-    # Fit manually
+    # 2 - Fit manually. This is generally the best ET source.
     MANUAL=2
-    # Fit via a least-squares model
+    # 3 - Fit via a least-squares model
     FIT=3
     # 4 - Modeled. Certain parameters like right_denom and probably clock are actually constant
     #     over the video. Also, the intent is that there is eventually a spline model for each of
     #     the viewpoint variables. "Modeled" means either constant or splined.
     MODELED=4
+    # 5- Deduced from another source, for instance radius of an ellipse of a moon of a known size
+    DEDUCED=5
+
+
+def make_sky(*,dir:np.ndarray,pole:np.ndarray=None,clock:float)->np.ndarray:
+    """
+    Create a sky vector from a given direction, pole, and clock
+
+    :param dir:  Camera axis
+    :param pole: Coordinate system pole, defaults to +z if None is passed
+    :param clock: clock angle in degrees around camera axis
+    :return: Sky vector which
+    """
+    if pole is None:
+        pole=np.array([[0.0], [0.0], [1.0]])
+    ssky = vnormalize(vcross(dir, pole))
+    csky = vnormalize(vcross(ssky, dir))
+    sky = np.cos(np.deg2rad(clock)) * csky + np.sin(np.deg2rad(clock)) * ssky
+    return sky
 
 
 @dataclass
@@ -151,20 +171,26 @@ class Camera:
                        to project into camera coordinates.
         :param out_nan: If True, then set coordinates of stars that are outside of the image to NaN
         :param w: Homogeneous coordinate to use for vectors that don't already have them (IE it's (3,N) instead of (4,N))
+                 Default value of 0 causes the vector to ignore the translation part of the transformation
+                 and is appropriate for things infinitely far away like stars. Use 1 for things
+                 at finite distance (in this context, close to the camera like the spacecraft model).
         :return: Tuple of:
-                 * 2D position on camera, in the form of a shape (2,N) numpy array. Row 0 is
-                   horizontal coordinate, row 1 is vertical
+                 * 2D pixel coordinates on camera, in the form of a shape (2,N) numpy array.
+                   - Row 0 is horizontal coordinate, [0-width] with low numbers on left
+                   - row 1 is vertical coordinate, [0-height] with low numbers on top
                  * 1D numpy array of booleans of stars that have positions.
         """
         self._update()
         if vs_w.shape[0]==3:
             # Add homogeneous coordinate if needed
             vs_w=np.vstack((vs_w,np.zeros(vs_w.shape[1])+w))
+        # Vectors rotated into camera coordinates
         vs_c = self.M_cw @ vs_w
         #Convert to normalized screen coordinates. In this frame, the screen is on a plane perpendicular and
         #out along the z axis The edges of the screen are at +-0.5*up and +-0.5*right. Angle determines the distance
         #between the camera and the plane of the screen. Using the image at http://www.povray.org/documentation/view/3.7.0/246/
-        #as a reference, tan(angle/2)=0.5*right/direction. We can solve this for direction:
+        #as a reference, tan(angle/2)=0.5*right/direction. Note that this implies that the angle is the full
+        # FOV angle across the horizontal direction through the camera boresight. We can solve this for direction:
         # tan(angle/2)*direction=0.5*right
         # direction=0.5*right/tan(angle/2)
         direction=0.5*self.right/np.tan(np.radians(self.angle)/2)
@@ -175,25 +201,68 @@ class Camera:
         # by direction/z. If we do this right, the z coordinate will become equal to direction, which indicates the other
         # components are normalized screen coordinates
         target_scl=vs_c[0:2,:]*direction/vs_c[2,:]
-        result=np.zeros(target_scl.shape)
         cx=self.width/2
         cy=self.height/2
         up=1
         rx=linterp(-0.5*self.right,-self.width /2,0.5*self.right,self.width /2,target_scl[0,:])
         ry=linterp(-0.5*up        ,-self.height/2,0.5*up        ,self.height/2,target_scl[1,:])
-        result[0,:]=rx+cx
-        result[1,:]=ry+cy
+        # Calculate final pixel coordinates,
+        pixs_c=np.zeros(target_scl.shape)
+        pixs_c[0,:]=rx+cx
+        pixs_c[1,:]=ry+cy
         if out_nan:
-            result[:,result[0,:]<0]=float('NaN')
-            result[:,result[1,:]<0]=float('NaN')
-            result[:,result[0,:]>self.width]=float('NaN')
-            result[:,result[1,:]>self.height]=float('NaN')
-        return result,np.isfinite(result[0,:])
+            pixs_c[:,pixs_c[0,:]<0]=float('NaN')
+            pixs_c[:,pixs_c[1,:]<0]=float('NaN')
+            pixs_c[:,pixs_c[0,:]>self.width]=float('NaN')
+            pixs_c[:,pixs_c[1,:]>self.height]=float('NaN')
+        return pixs_c,np.isfinite(pixs_c[0,:])
+    def project_inv(self,pixs_c:np.ndarray,*,w:float=None)->tuple[np.ndarray,np.ndarray[bool]]:
+        """
+        Project the target into the camera field of view
+        :param pixs_c: Column vector (or stack of column vectors) of shape (2,N) 2D pixel coordinates on camera
+                   - Row 0 is horizontal coordinate, [0-width] with low numbers on left
+                   - row 1 is vertical coordinate, [0-height] with low numbers on top
+        :param out_nan: If True, then set coordinates of stars that are outside of the image to NaN
+        :param w: Homogeneous coordinate to use
+        :return: Tuple of:
+                 * 2D position on camera, in the form of a shape (2,N) numpy array. Row 0 is
+                   horizontal coordinate, row 1 is vertical
+                 * 1D numpy array of booleans of stars that have positions.
+        """
+        self._update()
+
+        # We do basically the reverse steps of the transformation above.
+        # Pixel coords to normalized screen coords
+        cx=self.width/2
+        cy=self.height/2
+        up=1
+        direction=0.5*self.right/np.tan(np.radians(self.angle)/2)
+        # Centered pixel coordinates, running from [-width/2,width/2] in x and [-height/2,height/2] in y
+        rx=pixs_c[0,:]-cx
+        ry=pixs_c[1,:]-cy
+        # Vectors to image plane in camera space. Leave room for the z component, distance to image plane
+
+        target_scl=np.zeros((3,rx.shape[0]),dtype=np.float64)
+        target_scl[0,:]=linterp(-self.width /2,-0.5*self.right,self.width /2,0.5*self.right,rx)
+        target_scl[1,:]=linterp(-self.height/2,-0.5*up        ,self.height/2,0.5*up        ,ry)
+        target_scl[2,:]=direction
+        # In the forward direction `Camera.project()` we have to allow for vectors anywhere in camera
+        # space, and project them onto the image plane, where it is called target_scl. Here, those
+        # vectors on the image plane are exactly what we want. We aren't going to try to convert
+        # them back into 3D because that information isn't here. You can't get 3D out of 2D.
+        vs_c=target_scl
+        if vs_c.shape[0]==3:
+            # Add homogeneous coordinate if needed
+            vs_c=np.vstack((vs_c,np.zeros(vs_c.shape[1])+(w if w is not None else 0)))
+        # Vectors rotated into world coordinates
+        vs_w = self.M_wc @ vs_c
+        if w is None:
+            # Caller didn't specify homogeneous coordinate, so doesn't care about it.
+            # We will chop it off.
+            vs_w=vs_w[0:3,:] #Chop off homogeneous coordinate
+        return vs_w
     def _make_sky(self):
-        ssky=vnormalize(vcross(self.dir,np.array([[0.0],[0.0],[1.0]])))
-        csky=vnormalize(vcross(ssky,self.dir))
-        sky=np.cos(np.deg2rad(self.clock))*csky+np.sin(np.deg2rad(self.clock))*ssky
-        return sky
+        return make_sky(dir=self.dir, clock=self.clock)
     def to_params(self)->np.ndarray:
         """
         Convert the Camera's parameters to a numpy array.
@@ -236,6 +305,12 @@ class Camera:
         return result
     @classmethod
     def _interp_db(cls, *, conn, framenum):
+        """
+        IF a framenum is not in the database, then interpolate it from its neighbors.
+        :param conn:
+        :param framenum:
+        :return:
+        """
         result=cls()
         def fill_in_value(fieldname):
             # Sources are, in order of decreasing confidence:
@@ -247,18 +322,26 @@ class Camera:
             # 1 - Interpolated from higher-confidence sources
             # 0 - unknown source
             if result.__dict__[fieldname] is None or (fieldname=="et" and result.__dict__[fieldname+"_source"]<2):
-                sql=f"select framenum,{fieldname} from frames where {fieldname}_source>1 order by abs(framenum-?) asc"
-                print(sql)
+                sql_lower=f"select framenum,{fieldname} from frames where {fieldname}_source>1 and framenum<=? order by framenum desc"
+                sql_higher=f"select framenum,{fieldname} from frames where {fieldname}_source>1 and framenum>=? order by framenum asc"
+
                 with closing(conn.cursor()) as cur:
-                    this_has_row = False
-                    for this_row in cur.execute(sql,(framenum,)):
-                        if not this_has_row:
-                            fn0,val0=this_row
-                            this_has_row=True
-                        else:
-                            fn1,val1=this_row
-                            break
-                result.__dict__[fieldname]=linterp(fn0,val0,fn1,val1,framenum)
+                    rows_lower=cur.execute(sql_lower,(framenum,)).fetchmany(2)
+                    rows_higher=cur.execute(sql_higher,(framenum,)).fetchmany(2)
+                if rows_lower and rows_higher:
+                    fn0,val0=rows_lower[0]
+                    fn1,val1=rows_higher[0]
+                elif rows_lower:
+                    fn0,val0=rows_lower[0]
+                    fn1,val1=rows_lower[1]
+                else:
+                    fn0,val0=rows_higher[0]
+                    fn1,val1=rows_higher[1]
+                val=linterp(fn0,val0,fn1,val1,framenum)
+                print(f"Bracket 0: {fn0=},{fieldname}={val0}")
+                print(f"Bracket 1: {fn1=},{fieldname}={val1}")
+                print(f"Interpolated {framenum=},{fieldname}={val}")
+                result.__dict__[fieldname]=val
                 result.__dict__[fieldname+"_source"]=Source.INTERPOLATED
         fill_in_value("lat")
         fill_in_value("lon")
@@ -295,12 +378,13 @@ class Camera:
         else:
             # No rows at all -- use initial conditions
             # initial conditions valid for frame 675
-            result = Camera(lat=-2.4, lon=98.6 - 180, angle=45, right_denom=2.897004)
+            result = Camera(lat=-2.4, lon=98.6 - 180, angle=45, clock=0.0, width=640, height=480, right_num=16.0, right_denom=11.897004)
             result.lat_sig = float('inf')
             result.lon_sig = float('inf')
             result.angle_sig = float('inf')
             result.clock_sig = float('inf')
             result.right_denom_sig = float('inf')
+            result.et=str2et("1979-03-03 00:00:00 TDB")
             result.nstars = None
         return result
     def write_db(self,conn:Connection,framenum:int):

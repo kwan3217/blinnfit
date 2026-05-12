@@ -3,34 +3,39 @@ We have a scan platform CK file with discrete pointing instances at each observa
 Convert this into a CK which has continuous coverage and slews the scan platform
 such that it hits each pointing instance.
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 
 import numpy as np
-import pytz as pytz
 from kwanmath.interp import linterp
 from kwanmath.matrix import rot_y, rot_z
-from spiceypy import furnsh, ckobj, ckcov, wncard, wnfetd, str2et, sct2e, scdecd, etcal, pxform, spkezr, timout
+from spiceypy import furnsh, ckobj, ckcov, wncard, wnfetd, str2et, sct2e, scdecd, etcal, pxform, spkezr, timout, ckgp, \
+    sce2t,scencd
 from spiceypy.utils.support_types import SPICEDOUBLE_CELL
 import matplotlib.pyplot as plt
 import os
 import subprocess
 
+from which_kernel import ls_spice
+
 
 def et_to_dt(et):
     cal=timout(et,"YYYY-MM-DD HR:MN:SC.###### ::UTC")
-    dt = pytz.utc.localize(datetime(int(cal[0:4]), int(cal[5:7]), int(cal[8:10]),
-                                    int(cal[11:13]), int(cal[14:16]), int(cal[17:19]), int(cal[20:26],10)))
+    dt = datetime(int(cal[0:4]), int(cal[5:7]), int(cal[8:10]),
+                  int(cal[11:13]), int(cal[14:16]), int(cal[17:19]), int(cal[20:26],10),tzinfo=UTC)
     return dt
 
 
-def furnish_kernels(ScanPlatformCK:str):
+def furnish_kernels(vgr:int,ScanPlatformCK:str):
     furnsh("data/spice/lsk/naif0012.tls")
-    furnsh("data/spice/fk/vg2_v02.tf")
-    furnsh("data/spice/sclk/vg200045.tsc")
-    furnsh("data/spice/ck/vgr2_super.bc")
-    furnsh("data/spice/spk/nep095.bsp")
-    furnsh("data/spice/spk/nep097.bsp")
-    furnsh("data/spice/spk/vgr2_nep097.bsp")
+    if vgr==2:
+        furnsh("data/spice/fk/vg2_v02.tf")
+        furnsh("data/spice/sclk/vg200045.tsc")
+        furnsh("data/spice/ck/vgr2_super.bc")
+        furnsh("data/spice/spk/nep095.bsp")
+        furnsh("data/spice/spk/nep097.bsp")
+        furnsh("data/spice/spk/vgr2_nep097.bsp")
+    else:
+        furnsh("data/spice/vgr1.tm")
     furnsh(ScanPlatformCK)
 
 
@@ -56,9 +61,10 @@ def get_pointing_instances(ScanPlatformCK:str, sclkid:int=-32)->tuple[list[float
     for i in range(wncard(cover)):
         tick0,tick1=wnfetd(cover,i)
         assert tick0==tick1,"Not a discrete pointing kernel like expected"
-        et0=sct2e(-32,tick0)
+        et0=sct2e(sclkid,tick0)
         sclkstr=scdecd(sclkid, tick0)
-        print(f"{tick0:20.7f},{sclkstr},{et0:20.7f},{etcal(et0)}")
+        #assert tick0==sce2t(sclkid,et0),"Didn't round-trip"
+        print(f"{i:7d},{tick0:20.7f},{sclkstr},{et0:20.7f},{etcal(et0)}")
         ticks.append(tick0)
         sclkstrs.append(scdecd(sclkid,tick0))
         ets.append(et0)
@@ -113,25 +119,36 @@ def mtx_to_euler(R, verbose=False):
     return (twist, coelevation, coazimuth)
 
 
-def get_eulers(ets:list[float],
+def get_eulers(sc:int,
+               ets:list[float],
+               ticks:list[float],
                sclkstrs:list[str],
-               et0:float=-347112000.0, #str2et("1989-01-01 00:00:00 TDB"),
-               et1:float=-315576000.0): #str2et("1990-01-01 00:00:00 TDB")):
+               et0:float=None,
+               et1:float=None):
+    vgr=-sc%10
+    if et0 is None:
+        et0=ets[0]
+    if et1 is None:
+        et1=ets[-1]
     twists = []  # Twists
     coelevations = []  # Coelevations
     coazimuths = []  # Coazimuths
     eet = []  # Teph's
     j2000 = datetime(2000, 1, 1, 12, 0, 0)
     dts = []  # Timestamps
-    for (i, (et, sclk)) in enumerate(zip(ets, sclkstrs)):
+    for (i, (et, tick, sclk)) in enumerate(zip(ets, ticks, sclkstrs)):
         if et < et0 or et > et1:
             continue
         print(i, etcal(et))
         try:
-            M = pxform("VG2_SCAN_PLATFORM", "VG2_AZ_EL", et)
+            M = pxform(f"VG{vgr}_SCAN_PLATFORM", "VG{vgr}_AZ_EL", et)
+            print("No spice error")
         except:
             print("Spice error (probably no super_ck)")
-            continue
+            MT,tickout=ckgp(sc*1000-100,tick,0,f"VG{vgr}_AZ_EL")
+            M=MT.T
+            #ls_spice(verbose=True)
+            #continue
         twist, coelevation, coazimuth = mtx_to_euler(M)
         twists.append(twist)
         coelevations.append(coelevation)
@@ -249,9 +266,12 @@ def make_slews(ets:list[float],coelevations:list[float],coazimuths:list[float],
         dcoel_seg.append(0)
         dcoaz_seg.append(np.copysign(slew_rate, (coaz1 - coaz0)))
     plt.figure(2)
-    plt.plot(dt_seg,coel0_seg)
-    plt.plot(dt_seg,coaz0_seg)
-    plt.plot(dt_seg[::3],linterp(0,-180,1.2,180,np.array(slew_rates)),'*')
+    plt.plot(dt_seg,coel0_seg,label='coel')
+    plt.plot(dt_seg,coaz0_seg,label='coaz')
+    plt.plot(dt_seg[::3],linterp(0,-180,1.2,180,np.array(slew_rates)),'*',label='slew_rate')
+    for rate in allowed_slew_rates:
+        plt.plot([dt_seg[0],dt_seg[-1]],np.array((1,1))*linterp(0, -180, 1.2, 180, rate), '-', label='{rate=:.02f}')
+    plt.legend()
     plt.pause(0.001)
     return et_seg,dt_seg,coel0_seg,coaz0_seg,dcoel_seg,dcoaz_seg
 
@@ -375,11 +395,11 @@ def msopck(et_seg: list[float], dt_seg:list[datetime],
     INPUT_TIME_TYPE = 'ET'
     ANGULAR_RATE_PRESENT= 'YES'
     CK_TYPE = 2
-    INSTRUMENT_ID=-32100
-    REFERENCE_FRAME_NAME='VG2_AZ_EL'
+    INSTRUMENT_ID={sc*1000-100}
+    REFERENCE_FRAME_NAME='VG{-sc%10}_AZ_EL'
     PRODUCER_ID='C. Jeppesen, Kwan Systems'
-    FRAMES_FILE_NAME='data/spice/fk/vg2_v02.tf'
-    SCLK_FILE_NAME='data/spice/sclk/vg200045.tsc'
+    FRAMES_FILE_NAME='data/spice/fk/vg{-sc%10}_v02.tf'
+    SCLK_FILE_NAME='data/spice/sclk/vg{-sc%10}00046.tsc'
     LSK_FILE_NAME='data/spice/lsk/naif0012.tls'
     EULER_ANGLE_UNITS='DEGREES'
     EULER_ROTATIONS_ORDER=('Z','Y','Z')
@@ -409,17 +429,23 @@ def msopck(et_seg: list[float], dt_seg:list[datetime],
 
 def main():
     encounters={
+        "V1J":("vg1_jup_version1_type1_iss_sedr.bc",-31,"Jupiter"),
         "V2N":("vg2_nep_version1_type1_iss_sedr.bc",-32,"Neptune"),
         "V2U":("vg2_ura_version1_type1_iss_sedr.bc",-32,"Uranus"),
     }
-    encounter="V2N"
+    encounter="V1J"
     ScanPlatformCK = "data/spice/ck/"+encounters[encounter][0]
-    furnish_kernels(ScanPlatformCK)
-    _,sclkstrs,ets=get_pointing_instances(ScanPlatformCK)
-    ets,twists,coels,coazs,dts=get_eulers(ets,sclkstrs)
+    furnish_kernels(1,ScanPlatformCK)
+    ticks,sclkstrs,ets=get_pointing_instances(ScanPlatformCK,sclkid=encounters[encounter][1])
+    ets,twists,coels,coazs,dts=get_eulers(sc=encounters[encounter][1],
+                                          ets=ets,
+                                          ticks=ticks,
+                                          sclkstrs=sclkstrs,
+                                          et0=str2et("1979-03-01 00:00:00 TDB"),
+                                          et1=str2et("1979-03-07 00:00:00 TDB"))
     et_seg,dt_seg,coel0_seg,coaz0_seg,dcoel_seg,dcoaz_seg=make_slews(ets,coels,coazs)
     et_seg,dt_seg,coel0_seg,coaz0_seg,dcoel_seg,dcoaz_seg=merge_slews(et_seg,dt_seg,coel0_seg,coaz0_seg,dcoel_seg,dcoaz_seg)
-    msopck(et_seg,dt_seg,coel0_seg,coaz0_seg,dcoel_seg,dcoaz_seg)
+    msopck(et_seg,dt_seg,coel0_seg,coaz0_seg,dcoel_seg,dcoaz_seg,planet=encounters[encounter][2],sc=encounters[encounter][1])
     plt.show()
 
 

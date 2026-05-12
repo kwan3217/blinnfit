@@ -28,13 +28,11 @@ def main():
         # Plot the interpolator
         plt.plot(frames,ets,'+')
         # Load the original data
-        sql = f"select framenum,et from frames where et_source=1 order by framenum asc"
+        sql = f"select framenum,et from frames where et_source=1 or et_source is null order by framenum asc"
         print(sql)
-        interpframes=[]
         with closing(conn.cursor()) as cur:
-            for this_row in cur.execute(sql):
-                interpframes.append(this_row)
-        interpframes=np.array(interpframes)
+            interpframes=cur.execute(sql).fetchall()
+        interpframes=np.array([(row[0],np.nan if row[1] is None else row[1]) for row in interpframes])
         iframes=interpframes[:,0]
         iets=interpframes[:,1]
         plt.plot(iframes,iets,'-')
