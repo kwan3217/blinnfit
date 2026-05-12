@@ -1,0 +1,14 @@
+KPL/PCK
+
+Neptune
+
+Values are from IAU report 3 (1985), well before the Voyager encounter before
+the equatorial plane of Neptune was well-observed.
+
+        \begindata        
+ 
+           BODY899_POLE_RA        = (  295.33     0.         0. )
+           BODY899_POLE_DEC       = (   40.65     0.         0. )
+           BODY899_PM             = (  107.21    468.75      0. )
+           BODY899_LONG_AXIS      = (    0.                     )
+
