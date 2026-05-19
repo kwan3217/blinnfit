@@ -1,3 +1,5 @@
+Merged with [Magrathea](https://gitlab.com/kwan32171/magrathea)
+
 # blinnfit
 Find the camera position and pointing by 
 fitting to the stars and planets
